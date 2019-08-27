@@ -24,6 +24,9 @@ public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
+signals:
+    void connectSuccess();
+
 public slots:
     void connection();
     void openGame();
@@ -32,6 +35,9 @@ public slots:
     void askDraw();
     void startConnection(QString);
     void acceptConnection();
+    void disconnect();
+    void abort();
+    void recvMessage();
 
 private:
     Ui::MainWindow *ui;
@@ -46,6 +52,7 @@ private:
 
     MyGraphicsItem *chess[8][8];
     void initChess();
+    void endGame();
 
     void statusUpdate();
 
@@ -55,6 +62,11 @@ private:
     bool connected;
     QTcpServer  *listenSocket;
     QTcpSocket  *readWriteSocket;
+    bool activeness;
+
+    void newGame_Passive();
+
+    bool side; // 0: white  1:black
 };
 
 #endif // MAINWINDOW_H

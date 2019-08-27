@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include <QMessageBox>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -10,6 +11,8 @@ MainWindow::MainWindow(QWidget *parent) :
     setWindowFlags(windowFlags()&~Qt::WindowMaximizeButtonHint);
 
     connected = false;
+    activeness = false;
+    statusUpdate();
 
     connectionAction = new QAction("Connection Option", this);
     connectionAction->setShortcuts(QKeySequence::Copy);
@@ -36,7 +39,7 @@ MainWindow::MainWindow(QWidget *parent) :
     opMenu->addAction(giveUpAction);
     opMenu->addAction(drawAction);
 
-    m_scene=new QGraphicsScene;
+    m_scene = new QGraphicsScene;
     ui->graphicsView->setScene(m_scene);
     ui->graphicsView->setRenderHint(QPainter::Antialiasing);
     QColor bgd;
@@ -56,8 +59,7 @@ MainWindow::MainWindow(QWidget *parent) :
         }
     }
     update();
-    initChess();
-    QGraphicsRectItem *item=new QGraphicsRectItem(-30,-30,480,480);
+    QGraphicsRectItem *item = new QGraphicsRectItem(-30,-30,480,480);
     QPen pen(Qt::black, 5);
     item->setPen(pen);
     m_scene->addItem(item);
@@ -84,8 +86,7 @@ void MainWindow::initChess() {
     chess[7][7]->setType("black", "rook");
     for(int i = 0; i < 8; i ++)
         chess[6][i]->setType("black","pawn");
-
-    statusUpdate();
+    update();
 }
 
 MainWindow::~MainWindow()
@@ -105,18 +106,16 @@ void MainWindow::statusUpdate() {
     else {
             ui->statusLabel->setText("Disconnected");
     }
+    repaint();
 }
 
 void MainWindow::connection() {
-    if(connected) {
-        connected = false;
-        statusUpdate();
-        delete listenSocket;
-        delete readWriteSocket;
-    }
-    connectConfigure = new connectDialog;
+    connected = false;
+    statusUpdate();
+    connectConfigure = new connectDialog(this);
     connectConfigure->setModal(false);
     connect(connectConfigure, SIGNAL(ipAddress(QString)), this, SLOT(startConnection(QString)));
+    connect(connectConfigure, SIGNAL(abort()), this, SLOT(abort()));
     connectConfigure->show();
 }
 
@@ -126,21 +125,109 @@ void MainWindow::startConnection(QString ipAddress) {
     ipAdd = QString::number(ip1) + "." + QString::number(ip2) + "." + QString::number(ip3) + "." + QString::number(ip4);
     if(mode == 0) {     // server
         ui->statusLabel->setText("Connecting as server...  (Address: " + ipAdd + ":" + QString::number(port) + ")");
-        this->listenSocket =new QTcpServer;
+        if(!listenSocket)
+            this->listenSocket = new QTcpServer;
         this->listenSocket->listen(QHostAddress::Any,port);
-        QObject::connect(this->listenSocket,SIGNAL(newConnection()),this,SLOT(acceptConnection()));
+        connect(this->listenSocket,SIGNAL(newConnection()),this,SLOT(acceptConnection()));
     }
     else {      //client
         ui->statusLabel->setText("Connecting as client...");
+        this->readWriteSocket = new QTcpSocket;
+        this->readWriteSocket->connectToHost(QHostAddress(ipAdd),port);
+        if(readWriteSocket->waitForConnected()) {
+            emit connectSuccess();
+            newGame();
+            connected = true;
+            statusUpdate();
+            connect(this->readWriteSocket,SIGNAL(readyRead()),this,SLOT(recvMessage()));
+        }
     }
 }
 
 void MainWindow::acceptConnection()
 {
     this->readWriteSocket =this->listenSocket->nextPendingConnection();
+    //qDebug() << "????";
+    newGame();
+    repaint();
     connected = true;
-    //QObject::connect(this->readWriteSocket,SIGNAL(readyRead()),this,SLOT(recvMessage()));
+    //qDebug() << "!!!!";
     statusUpdate();
+    //qDebug() << "####";
+    connect(this->readWriteSocket, SIGNAL(disconnected()), this, SLOT(disconnect()));
+    connect(this->readWriteSocket,SIGNAL(readyRead()),this,SLOT(recvMessage()));
+    emit connectSuccess();
+}
+
+void MainWindow::recvMessage()
+{
+    qDebug() << "read";
+    QString info;
+    //QDataStream stream(readWriteSocket);
+    //stream >> info;
+    info += this->readWriteSocket->readAll();
+    qDebug() << info;
+    if(info == "Admit defeat") {
+        QMessageBox::information(this, "information", "Opponent admits defeat. You win!");
+        readWriteSocket->write("Defeat information get");
+        //stream << "Defeat information get";
+        endGame();
+    }
+    else if (info == "Defeat information get") {
+        QMessageBox::information(this, "information", "You Lose!");
+        endGame();
+    }
+    else if(info == "Ask draw") {
+        QMessageBox::StandardButton reply = QMessageBox::question(this, "Ask for draw", "Opponent asks for a draw. Do you agree?");
+        if(reply == QMessageBox::No)
+            readWriteSocket->write("Refuse draw");
+        else {
+            readWriteSocket->write("Accept draw");
+            QMessageBox::information(this, "Draw", "Draw!");
+            endGame();
+        }
+    }
+    else if(info == "Refuse draw") {
+        QMessageBox::information(this, "Reply", "Opponent refuses a draw!");
+    }
+    else if(info == "Accept draw") {
+        QMessageBox::information(this, "Reply", "Opponent accepts a draw!");
+        endGame();
+    }
+    else if(info == "New game") {
+        QMessageBox::information(this, "New Game", "Opponent starts a new game!");
+        newGame_Passive();
+    }
+}
+
+void MainWindow::abort() {
+    if(mode == 0) {
+        listenSocket->close();
+        listenSocket = nullptr;
+        connected = false;
+        statusUpdate();
+    }
+    else {
+        disconnect();
+    }
+}
+
+void MainWindow::disconnect() {
+    readWriteSocket->disconnectFromHost();
+    readWriteSocket->close();
+    readWriteSocket = nullptr;
+    connected = false;
+    statusUpdate();
+}
+
+void MainWindow::endGame() {
+    qDebug() << "endgame";
+    for(int i = 0; i < 8; i ++) {
+        for(int j = 0; j < 8; j ++) {
+            chess[i][j]->setActiveness(false);
+        }
+    }
+    activeness = false;
 }
 
 void MainWindow::openGame() {
@@ -148,13 +235,53 @@ void MainWindow::openGame() {
 }
 
 void MainWindow::newGame() {
-    //
+    if(activeness)
+        return;
+    for(int i = 0; i < 8; i ++) {
+        for(int j = 0; j < 8; j ++) {
+            chess[i][j]->setActiveness(true);
+            chess[i][j]->setType();
+        }
+    }
+    activeness = true;
+    initChess();
+    repaint();
+    if(connected)
+        readWriteSocket->write("New game");
+}
+
+void MainWindow::newGame_Passive() {
+    if(activeness)
+        return;
+    for(int i = 0; i < 8; i ++) {
+        for(int j = 0; j < 8; j ++) {
+            chess[i][j]->setActiveness(true);
+            chess[i][j]->setType();
+        }
+    }
+    activeness = true;
+    initChess();
+    repaint();
 }
 
 void MainWindow::giveUp() {
-    //
+    if(!activeness || !connected)
+        return;
+    QMessageBox::StandardButton reply = QMessageBox::question(this, "Admit defeat", "Are you sure you want to give up?");
+    qDebug() << "giveup";
+    if(reply == QMessageBox::No)
+        return;
+    readWriteSocket->write("Admit defeat");
+    //QTextStream stream(readWriteSocket);
+    //stream << "Admit defeat";
 }
 
 void MainWindow::askDraw() {
-    //
+    if(!activeness || !connected)
+        return;
+    QMessageBox::StandardButton reply = QMessageBox::question(this, "Ask draw", "Are you sure you want to ask for a draw?");
+    qDebug() << "askDraw";
+    if(reply == QMessageBox::No)
+        return;
+    readWriteSocket->write("Ask draw");
 }

@@ -17,6 +17,7 @@ public:
 
 signals:
     void ipAddress(QString);
+    void abort();
 
 public slots:
     void serverClicked();

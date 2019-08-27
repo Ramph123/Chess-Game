@@ -7,12 +7,13 @@
 class MyGraphicsItem : public QGraphicsRectItem
 {
 public:
-    MyGraphicsItem(int row, int col, QColor color, qreal x = -30, qreal y = -30, qreal width = 60, qreal height=60,QGraphicsItem *parent = nullptr);
+    MyGraphicsItem(int inputRow, int inputCol, QColor color, qreal x = -30, qreal y = -30, qreal width = 60, qreal height=60,QGraphicsItem *parent = nullptr);
     ~MyGraphicsItem();
 
     void setType() { type = ""; }
     void setType(QString side, QString chess) { type = side + "_" + chess; }
     void setMargin(QColor color) { marginColor = color; update(); }
+    void setActiveness(bool in) { activeness = in; }
 
 protected:
     QRectF boundingRect() const;
@@ -25,6 +26,8 @@ private:
     QColor dark, light;
     QColor marginColor;
     int row, col;
+
+    bool activeness;
 };
 
 #endif // MYGRAPHICSITEM_H

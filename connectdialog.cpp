@@ -10,6 +10,7 @@ connectDialog::connectDialog(QWidget *parent) :
 {
     ui->setupUi(this);
 
+    setWindowTitle("New Connection");
     QList<QNetworkInterface> network = QNetworkInterface::allInterfaces();
     foreach (QNetworkInterface i, network) {
         QList<QNetworkAddressEntry> ipAll = i.addressEntries();
@@ -23,12 +24,14 @@ connectDialog::connectDialog(QWidget *parent) :
     ui->clientButton->setChecked(false);
     ui->ipEdit->setText(localIP);
     ui->ipEdit->setDisabled(true);
+    ui->cancelButton->setDisabled(true);
     connect(ui->serverButton, SIGNAL(clicked()), this, SLOT(serverClicked()));
     connect(ui->clientButton, SIGNAL(clicked()), this, SLOT(clientClicked()));
     connect(ui->ipEdit, SIGNAL(textChanged(QString)), this, SLOT(inputIPChanged(QString)));
     connect(ui->portEdit, SIGNAL(textChanged(QString)), this, SLOT(portChanged(QString)));
     connect(ui->cancelButton, SIGNAL(clicked()), this, SLOT(cancelConnection()));
     connect(ui->okButton, SIGNAL(clicked()), this, SLOT(checkFormat()));
+    connect(parent, SIGNAL(connectSuccess()), this, SLOT(accept()));
 }
 
 connectDialog::~connectDialog() { delete ui; }
@@ -52,7 +55,7 @@ void connectDialog::portChanged(QString content) {
 }
 
 void connectDialog::cancelConnection() {
-    //
+    emit abort();
 }
 void connectDialog::checkFormat() {
     if(ui->serverButton->isChecked())
@@ -86,9 +89,9 @@ void connectDialog::checkFormat() {
 }
 
 void connectDialog::startConnection() {
+    ui->cancelButton->setEnabled(true);
     mode = (ui->clientButton->isChecked()) ? 1 : 0;
     QString address = QString::number(mode) + " " + inputIP + ":" + portNumber;
     qDebug() << address;
     emit ipAddress(address);
-    accept();
 }

@@ -3,15 +3,18 @@
 #include <QPen>
 #include <QRectF>
 #include <QDebug>
+#include <QGraphicsItem>
 #include <QGraphicsSceneMouseEvent>
 
-MyGraphicsItem::MyGraphicsItem(int row, int col, QColor color, qreal x, qreal y, qreal width, qreal height,QGraphicsItem *parent):
-    QGraphicsRectItem(x,y,width,height,parent),
-    row(row), col(col)
+MyGraphicsItem::MyGraphicsItem(int inputRow, int inputCol, QColor color, qreal x, qreal y, qreal width, qreal height,QGraphicsItem *parent):
+    QGraphicsRectItem(x,y,width,height,parent)
 {
     setFlags(QGraphicsItem::ItemIsSelectable);
     bgdColor = color;
     marginColor = Qt::transparent;
+    row = inputRow;
+    col = inputCol;
+    activeness = false;
 }
 
 MyGraphicsItem::~MyGraphicsItem()
@@ -45,6 +48,8 @@ void MyGraphicsItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *op
 }
 
 void MyGraphicsItem::mousePressEvent(QGraphicsSceneMouseEvent* event) {
+    if(!activeness)
+        return;
     if(event->button() == Qt::LeftButton) {
         if(marginColor != Qt::transparent) {
             marginColor = Qt::transparent;
@@ -53,5 +58,6 @@ void MyGraphicsItem::mousePressEvent(QGraphicsSceneMouseEvent* event) {
             marginColor = Qt::blue;
         }
         update();
+        //emit checkerClicked(row, col);
     }
 }

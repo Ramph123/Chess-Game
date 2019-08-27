@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core gui
+QT       += core gui network
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -25,15 +25,18 @@ DEFINES += QT_DEPRECATED_WARNINGS
 CONFIG += c++11
 
 SOURCES += \
+        connectdialog.cpp \
         main.cpp \
         mainwindow.cpp \
         mygraphicsitem.cpp
 
 HEADERS += \
+        connectdialog.h \
         mainwindow.h \
         mygraphicsitem.h
 
 FORMS += \
+        connectdialog.ui \
         mainwindow.ui
 
 # Default rules for deployment.

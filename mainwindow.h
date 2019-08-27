@@ -7,6 +7,10 @@
 #include <QMenuBar>
 #include <QGraphicsScene>
 #include "mygraphicsitem.h"
+#include <QtNetwork/QTcpServer>
+#include <QtNetwork/QTcpSocket>
+#include <QtNetwork/QHostAddress>
+#include "connectdialog.h"
 
 namespace Ui {
 class MainWindow;
@@ -26,10 +30,13 @@ public slots:
     void newGame();
     void giveUp();
     void askDraw();
+    void startConnection(QString);
+    void acceptConnection();
 
 private:
     Ui::MainWindow *ui;
     QGraphicsScene *m_scene;
+    connectDialog *connectConfigure;
 
     QAction *connectionAction;
     QAction *openAction;
@@ -39,6 +46,15 @@ private:
 
     MyGraphicsItem *chess[8][8];
     void initChess();
+
+    void statusUpdate();
+
+    int mode; // 0: server 1: client
+    QString ipAdd;
+    int port;
+    bool connected;
+    QTcpServer  *listenSocket;
+    QTcpSocket  *readWriteSocket;
 };
 
 #endif // MAINWINDOW_H

@@ -9,6 +9,8 @@ MainWindow::MainWindow(QWidget *parent) :
     setWindowTitle(tr("Chess Game"));
     setWindowFlags(windowFlags()&~Qt::WindowMaximizeButtonHint);
 
+    connected = false;
+
     connectionAction = new QAction("Connection Option", this);
     connectionAction->setShortcuts(QKeySequence::Copy);
     connect(connectionAction, &QAction::triggered, this, &MainWindow::connection);
@@ -47,9 +49,9 @@ MainWindow::MainWindow(QWidget *parent) :
 
     for(int i = 0; i < 8; i ++) {
         for(int j = 0; j < 8; j ++) {
-            chess[i][j] = new MyGraphicsItem;
+            QColor color = ((i+j)%2==0) ? light : dark;
+            chess[i][j] = new MyGraphicsItem(i, j, color);
             chess[i][j]->setPos(j*60, (7-i)*60);
-            chess[i][j]->setBrush(((i+j)%2==0) ? QBrush(dark) : QBrush(light));
             m_scene->addItem(chess[i][j]);
         }
     }
@@ -82,6 +84,8 @@ void MainWindow::initChess() {
     chess[7][7]->setType("black", "rook");
     for(int i = 0; i < 8; i ++)
         chess[6][i]->setType("black","pawn");
+
+    statusUpdate();
 }
 
 MainWindow::~MainWindow()
@@ -89,8 +93,54 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
+void MainWindow::statusUpdate() {
+    if(connected) {
+        if(mode == 0) {
+            ui->statusLabel->setText("Connected as server. Address: " + ipAdd + ":" + QString::number(port));
+        }
+        else {
+            ui->statusLabel->setText("Connected as client. Server address: " + ipAdd + ":" + QString::number(port));
+        }
+    }
+    else {
+            ui->statusLabel->setText("Disconnected");
+    }
+}
+
 void MainWindow::connection() {
-    //
+    if(connected) {
+        connected = false;
+        statusUpdate();
+        delete listenSocket;
+        delete readWriteSocket;
+    }
+    connectConfigure = new connectDialog;
+    connectConfigure->setModal(false);
+    connect(connectConfigure, SIGNAL(ipAddress(QString)), this, SLOT(startConnection(QString)));
+    connectConfigure->show();
+}
+
+void MainWindow::startConnection(QString ipAddress) {
+    int ip1, ip2, ip3, ip4;
+    sscanf(ipAddress.toLatin1().data(), "%d %d.%d.%d.%d:%d", &mode, &ip1, &ip2, &ip3, &ip4, &port);
+    ipAdd = QString::number(ip1) + "." + QString::number(ip2) + "." + QString::number(ip3) + "." + QString::number(ip4);
+    if(mode == 0) {     // server
+        ui->statusLabel->setText("Connecting as server...  (Address: " + ipAdd + ":" + QString::number(port) + ")");
+        this->listenSocket =new QTcpServer;
+        this->listenSocket->listen(QHostAddress::Any,port);
+        QObject::connect(this->listenSocket,SIGNAL(newConnection()),this,SLOT(acceptConnection()));
+    }
+    else {      //client
+        ui->statusLabel->setText("Connecting as client...");
+    }
+}
+
+void MainWindow::acceptConnection()
+{
+    this->readWriteSocket =this->listenSocket->nextPendingConnection();
+    connected = true;
+    //QObject::connect(this->readWriteSocket,SIGNAL(readyRead()),this,SLOT(recvMessage()));
+    statusUpdate();
 }
 
 void MainWindow::openGame() {

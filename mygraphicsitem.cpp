@@ -2,11 +2,16 @@
 #include <QPainter>
 #include <QPen>
 #include <QRectF>
+#include <QDebug>
+#include <QGraphicsSceneMouseEvent>
 
-MyGraphicsItem::MyGraphicsItem(qreal x, qreal y, qreal width, qreal height,QGraphicsItem *parent):
-    QGraphicsRectItem(x,y,width,height,parent)
+MyGraphicsItem::MyGraphicsItem(int row, int col, QColor color, qreal x, qreal y, qreal width, qreal height,QGraphicsItem *parent):
+    QGraphicsRectItem(x,y,width,height,parent),
+    row(row), col(col)
 {
     setFlags(QGraphicsItem::ItemIsSelectable);
+    bgdColor = color;
+    marginColor = Qt::transparent;
 }
 
 MyGraphicsItem::~MyGraphicsItem()
@@ -29,7 +34,24 @@ void MyGraphicsItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *op
     QPen pen(Qt::black, 2);
     //painter->setPen(pen);
     QGraphicsRectItem::setPen(pen);
+    QGraphicsRectItem::setBrush(QBrush(bgdColor));
     QGraphicsRectItem::paint(painter, option, widget);
+    QPen newpen(marginColor, 5);
+    painter->setPen(newpen);
+    painter->drawRect(-28,-28,56,56);
+    painter->setPen(pen);
     if(type != "")
         painter->drawImage(QRectF(-25,-25,50,50),QImage(":/pic/pic/" + type + ".png"));
+}
+
+void MyGraphicsItem::mousePressEvent(QGraphicsSceneMouseEvent* event) {
+    if(event->button() == Qt::LeftButton) {
+        if(marginColor != Qt::transparent) {
+            marginColor = Qt::transparent;
+        }
+        else {
+            marginColor = Qt::blue;
+        }
+        update();
+    }
 }

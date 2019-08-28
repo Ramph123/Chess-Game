@@ -28,7 +28,7 @@ public slots:
 private:
     Ui::serverGameConfig *ui;
 
-    bool side;
+    bool side; // 0: black  1: white
     bool limitEnable;
     int timeLimit;
 };

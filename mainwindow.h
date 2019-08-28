@@ -53,6 +53,7 @@ public slots:
     void acceptStart();
     void checkerClicked(int, int);
     void updateTime();
+    void promote(QString, int, int);
 
 private:
     Ui::MainWindow *ui;
@@ -68,7 +69,7 @@ private:
 
     MyGraphicsItem *chess[8][8];
     void initChess();
-    void endGame();
+    void endGame(bool flag = false);
 
     void statusUpdate();
 
@@ -80,7 +81,7 @@ private:
     QTcpSocket  *readWriteSocket;
     bool activeness;
 
-    bool side; // 0: white  1:black
+    bool side; // 0: black  1:white
     bool limitEnable;
     int timeLimit;
     QTimer *timer;
@@ -98,10 +99,13 @@ private:
     void getAccessible(int row, int col);
     void paintAccessible();
     void cleanAccessible();
-    int oppoControl[8][8];
 
-    void judge();
-    bool isChecked;
+    bool judge();
+    int oppoControl[8][8];
+    void getControl();
+    void stalemate();
+
+    bool castling;
 };
 
 #endif // MAINWINDOW_H

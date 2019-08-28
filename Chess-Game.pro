@@ -30,6 +30,7 @@ SOURCES += \
         main.cpp \
         mainwindow.cpp \
         mygraphicsitem.cpp \
+        promotiondialog.cpp \
         servergameconfig.cpp
 
 HEADERS += \
@@ -37,12 +38,14 @@ HEADERS += \
         connectdialog.h \
         mainwindow.h \
         mygraphicsitem.h \
+        promotiondialog.h \
         servergameconfig.h
 
 FORMS += \
         clientgameconfig.ui \
         connectdialog.ui \
         mainwindow.ui \
+        promotiondialog.ui \
         servergameconfig.ui
 
 # Default rules for deployment.

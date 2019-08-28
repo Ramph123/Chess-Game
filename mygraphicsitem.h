@@ -1,11 +1,13 @@
 #ifndef MYGRAPHICSITEM_H
 #define MYGRAPHICSITEM_H
 
+#include <QObject>
 #include <QGraphicsItem>
 #include <QBrush>
 
-class MyGraphicsItem : public QGraphicsRectItem
+class MyGraphicsItem : public QObject, public QGraphicsRectItem
 {
+    Q_OBJECT
 public:
     MyGraphicsItem(int inputRow, int inputCol, QColor color, qreal x = -30, qreal y = -30, qreal width = 60, qreal height=60,QGraphicsItem *parent = nullptr);
     ~MyGraphicsItem();
@@ -14,6 +16,9 @@ public:
     void setType(QString side, QString chess) { type = side + "_" + chess; }
     void setMargin(QColor color) { marginColor = color; update(); }
     void setActiveness(bool in) { activeness = in; }
+
+signals:
+    void checkerClicked(int, int);
 
 protected:
     QRectF boundingRect() const;

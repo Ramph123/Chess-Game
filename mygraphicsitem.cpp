@@ -51,13 +51,13 @@ void MyGraphicsItem::mousePressEvent(QGraphicsSceneMouseEvent* event) {
     if(!activeness)
         return;
     if(event->button() == Qt::LeftButton) {
-        if(marginColor != Qt::transparent) {
-            marginColor = Qt::transparent;
-        }
-        else {
-            marginColor = Qt::blue;
-        }
-        update();
-        //emit checkerClicked(row, col);
+//        if(marginColor != Qt::transparent) {
+//            marginColor = Qt::transparent;
+//        }
+//        else {
+//            marginColor = Qt::blue;
+//        }
+//        update();
+        emit checkerClicked(row, col);
     }
 }

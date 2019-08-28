@@ -31,6 +31,7 @@ public slots:
     void connection();
     void openGame();
     void newGame();
+    void newGame_Passive();
     void giveUp();
     void askDraw();
     void startConnection(QString);
@@ -38,6 +39,8 @@ public slots:
     void disconnect();
     void abort();
     void recvMessage();
+    void gameConfig(QString);
+    void checkerClicked(int, int);
 
 private:
     Ui::MainWindow *ui;
@@ -64,9 +67,9 @@ private:
     QTcpSocket  *readWriteSocket;
     bool activeness;
 
-    void newGame_Passive();
-
     bool side; // 0: white  1:black
+    bool limitEnable;
+    int timeLimit;
 };
 
 #endif // MAINWINDOW_H

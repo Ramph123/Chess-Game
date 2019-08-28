@@ -25,19 +25,25 @@ DEFINES += QT_DEPRECATED_WARNINGS
 CONFIG += c++11
 
 SOURCES += \
+        clientgameconfig.cpp \
         connectdialog.cpp \
         main.cpp \
         mainwindow.cpp \
-        mygraphicsitem.cpp
+        mygraphicsitem.cpp \
+        servergameconfig.cpp
 
 HEADERS += \
+        clientgameconfig.h \
         connectdialog.h \
         mainwindow.h \
-        mygraphicsitem.h
+        mygraphicsitem.h \
+        servergameconfig.h
 
 FORMS += \
+        clientgameconfig.ui \
         connectdialog.ui \
-        mainwindow.ui
+        mainwindow.ui \
+        servergameconfig.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

@@ -1,6 +1,8 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include <QMessageBox>
+#include "servergameconfig.h"
+#include "clientgameconfig.h"
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -13,6 +15,9 @@ MainWindow::MainWindow(QWidget *parent) :
     connected = false;
     activeness = false;
     statusUpdate();
+    side = 0;
+    limitEnable = 0;
+    timeLimit = -1;
 
     connectionAction = new QAction("Connection Option", this);
     connectionAction->setShortcuts(QKeySequence::Copy);
@@ -136,10 +141,10 @@ void MainWindow::startConnection(QString ipAddress) {
         this->readWriteSocket->connectToHost(QHostAddress(ipAdd),port);
         if(readWriteSocket->waitForConnected()) {
             emit connectSuccess();
-            newGame();
             connected = true;
             statusUpdate();
             connect(this->readWriteSocket,SIGNAL(readyRead()),this,SLOT(recvMessage()));
+            QMessageBox::information(this, "success", "Connection established. Please wait for server to configure the game.");
         }
     }
 }
@@ -147,16 +152,32 @@ void MainWindow::startConnection(QString ipAddress) {
 void MainWindow::acceptConnection()
 {
     this->readWriteSocket =this->listenSocket->nextPendingConnection();
-    //qDebug() << "????";
-    newGame();
-    repaint();
+    emit connectSuccess();
+    listenSocket->close();
     connected = true;
-    //qDebug() << "!!!!";
     statusUpdate();
-    //qDebug() << "####";
+    serverGameConfig *config = new serverGameConfig;
+    config->setModal(false);
+    connect(config, SIGNAL(gameConfigResult(QString)), this, SLOT(gameConfig(QString)));
+    //connect(config, SIGNAL(gameConfigResult(QString)), this, SLOT(newGame_Passive()));
+    config->show();
+    //newGame_Passive();
     connect(this->readWriteSocket, SIGNAL(disconnected()), this, SLOT(disconnect()));
     connect(this->readWriteSocket,SIGNAL(readyRead()),this,SLOT(recvMessage()));
-    emit connectSuccess();
+}
+
+void MainWindow::gameConfig(QString result) {
+    int in_side, in_enable, in_time;
+    sscanf(result.toLatin1().data(), "%d-%d-%d", &in_side, &in_enable, &in_time);
+    side = (in_side) ? true : false;
+    limitEnable = (in_enable) ? true : false;
+    if(limitEnable)
+        timeLimit = in_time;
+    QString oppoSide = (side) ? "0" : "1";
+    QString oppoLimit = (limitEnable) ? "1" : "0";
+    QString oppoTime = QString::number(timeLimit);
+    QString block = "Config-" + oppoSide + "-" + oppoLimit + "-" + oppoTime;
+    readWriteSocket->write(block.toLatin1().data());
 }
 
 void MainWindow::recvMessage()
@@ -196,6 +217,26 @@ void MainWindow::recvMessage()
     }
     else if(info == "New game") {
         QMessageBox::information(this, "New Game", "Opponent starts a new game!");
+        newGame_Passive();
+    }
+    else if(info.left(6) == "Config") {
+        int in_side, in_enable, in_time;
+        sscanf(info.toLatin1().data(), "Config-%d-%d-%d", &in_side, &in_enable, &in_time);
+        side = (in_side) ? true : false;
+        limitEnable = (in_enable) ? true : false;
+        if(limitEnable)
+            timeLimit = in_time;
+        //QString sideString = (side)?"white":"black";
+        clientGameConfig *dialog = new clientGameConfig;
+        dialog->setSide(side);
+        dialog->setTimeLimit(limitEnable, timeLimit);
+        dialog->show();
+        newGame_Passive();
+        readWriteSocket->write("Game start");
+    }
+    else if(info == "Game start") {
+        //qDebug() << "!!!!!!";
+        QMessageBox::information(this, "Game start", "Game start!");
         newGame_Passive();
     }
 }
@@ -241,6 +282,7 @@ void MainWindow::newGame() {
         for(int j = 0; j < 8; j ++) {
             chess[i][j]->setActiveness(true);
             chess[i][j]->setType();
+            connect(chess[i][j], SIGNAL(checkerClicked(int,int)), this, SLOT(checkerClicked(int,int)));
         }
     }
     activeness = true;
@@ -257,6 +299,7 @@ void MainWindow::newGame_Passive() {
         for(int j = 0; j < 8; j ++) {
             chess[i][j]->setActiveness(true);
             chess[i][j]->setType();
+            connect(chess[i][j], SIGNAL(checkerClicked(int,int)), this, SLOT(checkerClicked(int,int)));
         }
     }
     activeness = true;
@@ -284,4 +327,9 @@ void MainWindow::askDraw() {
     if(reply == QMessageBox::No)
         return;
     readWriteSocket->write("Ask draw");
+}
+
+void MainWindow::checkerClicked(int row, int col) {
+    qDebug() << "clicked" << row << col;
+    //QMessageBox::information(this, "info", QString("Checker clicked! %1 %2").arg(row).arg(col));
 }

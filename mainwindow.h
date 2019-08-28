@@ -11,7 +11,9 @@
 #include <QtNetwork/QTcpSocket>
 #include <QtNetwork/QHostAddress>
 #include "connectdialog.h"
+#include "servergameconfig.h"
 #include <vector>
+#include <QTimer>
 
 using std::vector;
 
@@ -50,11 +52,13 @@ public slots:
     void gameConfig(QString);
     void acceptStart();
     void checkerClicked(int, int);
+    void updateTime();
 
 private:
     Ui::MainWindow *ui;
     QGraphicsScene *m_scene;
     connectDialog *connectConfigure;
+    serverGameConfig *config;
 
     QAction *connectionAction;
     QAction *openAction;
@@ -79,6 +83,9 @@ private:
     bool side; // 0: white  1:black
     bool limitEnable;
     int timeLimit;
+    QTimer *timer;
+    int timeRemain;
+    void initTimer();
 
     bool curSide;
     int selected;
@@ -91,6 +98,10 @@ private:
     void getAccessible(int row, int col);
     void paintAccessible();
     void cleanAccessible();
+    int oppoControl[8][8];
+
+    void judge();
+    bool isChecked;
 };
 
 #endif // MAINWINDOW_H

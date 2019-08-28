@@ -14,7 +14,7 @@ serverGameConfig::serverGameConfig(QWidget *parent) :
     ui->whiteButton->setChecked(false);
     side = 0;
     limitEnable = 0;
-    timeLimit = 30;
+    timeLimit = 60;
     connect(ui->blackButton, SIGNAL(clicked()), this, SLOT(blackClicked()));
     connect(ui->whiteButton, SIGNAL(clicked()), this, SLOT(whiteClicked()));
     connect(ui->checkBox, SIGNAL(stateChanged(int)), this, SLOT(checkboxChanged(int)));

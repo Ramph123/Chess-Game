@@ -124,7 +124,7 @@
            </size>
           </property>
           <property name="text">
-           <string>Concede</string>
+           <string>Admit Defeat</string>
           </property>
          </widget>
         </item>

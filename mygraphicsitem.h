@@ -12,10 +12,13 @@ public:
     MyGraphicsItem(int inputRow, int inputCol, QColor color, qreal x = -30, qreal y = -30, qreal width = 60, qreal height=60,QGraphicsItem *parent = nullptr);
     ~MyGraphicsItem();
 
-    void setType() { type = ""; }
-    void setType(QString side, QString chess) { type = side + "_" + chess; }
+    void setChess() { color = ""; type = ""; }
+    void setChess(QString side, QString chess) { color = side; type = chess; }
     void setMargin(QColor color) { marginColor = color; update(); }
     void setActiveness(bool in) { activeness = in; }
+    QString getSide() { return color; }
+    QString getType() { return type; }
+    QColor getMargin() { return marginColor; }
 
 signals:
     void checkerClicked(int, int);
@@ -26,6 +29,7 @@ protected:
     void mousePressEvent(QGraphicsSceneMouseEvent* event);
 
 private:
+    QString color;
     QString type;
     QColor bgdColor;
     QColor dark, light;

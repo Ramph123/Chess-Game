@@ -7,7 +7,7 @@ clientGameConfig::clientGameConfig(QWidget *parent) :
 {
     ui->setupUi(this);
     setWindowTitle("Game Configuration");
-    connect(ui->pushButton, SIGNAL(clicked()), this, SLOT(accept()));
+    connect(ui->pushButton, SIGNAL(clicked()), this, SLOT(send()));
 }
 
 clientGameConfig::~clientGameConfig() {
@@ -24,4 +24,9 @@ void clientGameConfig::setTimeLimit(bool enable, int time) {
     else {
         ui->timeLabel->setText(QString::number(time) + " seconds");
     }
+}
+
+void clientGameConfig::send() {
+    emit startGame();
+    accept();
 }

@@ -44,7 +44,7 @@ void MyGraphicsItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *op
     painter->drawRect(-28,-28,56,56);
     painter->setPen(pen);
     if(type != "")
-        painter->drawImage(QRectF(-25,-25,50,50),QImage(":/pic/pic/" + type + ".png"));
+        painter->drawImage(QRectF(-25,-25,50,50),QImage(":/pic/pic/" + color + "_" + type + ".png"));
 }
 
 void MyGraphicsItem::mousePressEvent(QGraphicsSceneMouseEvent* event) {

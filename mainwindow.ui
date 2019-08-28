@@ -69,11 +69,18 @@
           </property>
           <property name="font">
            <font>
-            <pointsize>18</pointsize>
+            <family>Gill Sans</family>
+            <pointsize>24</pointsize>
            </font>
           </property>
           <property name="text">
            <string/>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
           </property>
          </widget>
         </item>
@@ -90,6 +97,15 @@
             <width>16777215</width>
             <height>80</height>
            </size>
+          </property>
+          <property name="frameShape">
+           <enum>QFrame::NoFrame</enum>
+          </property>
+          <property name="frameShadow">
+           <enum>QFrame::Plain</enum>
+          </property>
+          <property name="lineWidth">
+           <number>0</number>
           </property>
           <property name="segmentStyle">
            <enum>QLCDNumber::Flat</enum>
@@ -108,7 +124,7 @@
            </size>
           </property>
           <property name="text">
-           <string>Admit Defeat</string>
+           <string>Concede</string>
           </property>
          </widget>
         </item>

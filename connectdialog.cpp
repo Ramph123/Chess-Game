@@ -16,14 +16,14 @@ connectDialog::connectDialog(QWidget *parent) :
         QList<QNetworkAddressEntry> ipAll = i.addressEntries();
         foreach (QNetworkAddressEntry ip, ipAll) {
             if(ip.ip().protocol()==QAbstractSocket::IPv4Protocol)
-                localIP = ip.ip().toString();
+                localIP.append(ip.ip().toString());
         }
     }
-    inputIP = localIP;
+    //qDebug() << localIP;
+    inputIP = localIP.at(localIP.size()-1);
     ui->serverButton->setChecked(true);
     ui->clientButton->setChecked(false);
-    ui->ipEdit->setText(localIP);
-    ui->ipEdit->setDisabled(true);
+    ui->ipEdit->setText(inputIP);
     ui->cancelButton->setDisabled(true);
     connect(ui->serverButton, SIGNAL(clicked()), this, SLOT(serverClicked()));
     connect(ui->clientButton, SIGNAL(clicked()), this, SLOT(clientClicked()));
@@ -38,13 +38,11 @@ connectDialog::~connectDialog() { delete ui; }
 
 void connectDialog::serverClicked() {
     ui->clientButton->setChecked(!ui->serverButton->isChecked());
-    ui->ipEdit->setText(localIP);
-    ui->ipEdit->setDisabled(true);
+    ui->ipEdit->setText(localIP.at(localIP.size()-1));
 }
 
 void connectDialog::clientClicked() {
     ui->serverButton->setChecked(!ui->clientButton->isChecked());
-    ui->ipEdit->setEnabled(true);
 }
 
 void connectDialog::inputIPChanged(QString content) {
@@ -58,19 +56,19 @@ void connectDialog::cancelConnection() {
     emit abort();
 }
 void connectDialog::checkFormat() {
-    if(ui->serverButton->isChecked())
-        inputIP = localIP;
-    else {
-        int ip1, ip2, ip3, ip4;
-        if(sscanf(inputIP.toLatin1().data(), "%d.%d.%d.%d", &ip1, &ip2, &ip3, &ip4) != 4) {
-            QMessageBox::critical(this, "Error", "Error: IP address invalid!");
-            return;
+    int ip1, ip2, ip3, ip4;
+    if(sscanf(inputIP.toLatin1().data(), "%d.%d.%d.%d", &ip1, &ip2, &ip3, &ip4) != 4) {
+        QMessageBox::critical(this, "Error", "Error: IP address invalid!");
+        return;
 
-        }
-        else if(ip1 < 0 || ip1 > 255 || ip2 < 0 || ip2 > 255 || ip3 < 0 || ip3 > 255 || ip4 < 0 || ip4 > 255) {
-            QMessageBox::critical(this, "Error", "Error: IP address invalid!");
-            return;
-        }
+    }
+    else if(ip1 < 0 || ip1 > 255 || ip2 < 0 || ip2 > 255 || ip3 < 0 || ip3 > 255 || ip4 < 0 || ip4 > 255) {
+        QMessageBox::critical(this, "Error", "Error: IP address invalid!");
+        return;
+    }
+    if(!localIP.contains(inputIP)) {
+        QMessageBox::critical(this, "Error", "Error: Not a local IP address!");
+        return;
     }
     const char *s = portNumber.toUtf8().data();
     while(*s && *s>='0' && *s<='9') s++;

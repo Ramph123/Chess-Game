@@ -30,7 +30,7 @@ public slots:
 private:
     Ui::connectDialog *ui;
     int mode; // 0: server   1: client
-    QString localIP;
+    QStringList localIP;
     QString inputIP;
     QString portNumber;
     void startConnection();

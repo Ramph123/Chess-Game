@@ -11,10 +11,17 @@
 #include <QtNetwork/QTcpSocket>
 #include <QtNetwork/QHostAddress>
 #include "connectdialog.h"
+#include <vector>
+
+using std::vector;
 
 namespace Ui {
 class MainWindow;
 }
+
+struct Point {
+    int row,col;
+};
 
 class MainWindow : public QMainWindow
 {
@@ -36,10 +43,12 @@ public slots:
     void askDraw();
     void startConnection(QString);
     void acceptConnection();
+    void connectTimeout();
     void disconnect();
     void abort();
     void recvMessage();
     void gameConfig(QString);
+    void acceptStart();
     void checkerClicked(int, int);
 
 private:
@@ -70,6 +79,18 @@ private:
     bool side; // 0: white  1:black
     bool limitEnable;
     int timeLimit;
+
+    bool curSide;
+    int selected;
+    int prevRow, prevCol;
+    QString side2String(bool in);
+    void clickChess(int row, int col);
+    void moveChess(int prevRow, int prevCol, int destRow, int destCol);
+    void turnUpdate();
+    vector<Point> accessible;
+    void getAccessible(int row, int col);
+    void paintAccessible();
+    void cleanAccessible();
 };
 
 #endif // MAINWINDOW_H

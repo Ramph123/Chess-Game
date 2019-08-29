@@ -66,7 +66,7 @@ void connectDialog::checkFormat() {
         QMessageBox::critical(this, "Error", "Error: IP address invalid!");
         return;
     }
-    if(!localIP.contains(inputIP)) {
+    if(ui->serverButton->isChecked() && !localIP.contains(inputIP)) {
         QMessageBox::critical(this, "Error", "Error: Not a local IP address!");
         return;
     }

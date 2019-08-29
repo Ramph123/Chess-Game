@@ -64,16 +64,13 @@ MainWindow::MainWindow(QWidget *parent) :
     m_scene->setBackgroundBrush(QBrush(bgd));
 
     QColor dark, light;
-    dark.setRgb(174,136,104);
-    light.setRgb(237,218,185);
+    dark.setRgb(184,146,114);
+    light.setRgb(247,228,195);
 
     for(int i = 0; i < 8; i ++) {
         for(int j = 0; j < 8; j ++) {
             QColor color = ((i+j)%2==0) ? light : dark;
             chess[i][j] = new MyGraphicsItem(i, j, color);
-//            if(side == 0)
-//                chess[i][j]->setPos((7-j)*60, i*60);
-//            else
                 chess[i][j]->setPos(j*60, (7-i)*60);
             m_scene->addItem(chess[i][j]);
         }
@@ -95,27 +92,15 @@ QString MainWindow::side2String(bool in) {
 }
 
 void MainWindow::initBoard() {
-//    QColor dark, light;
-//    dark.setRgb(174,136,104);
-//    light.setRgb(237,218,185);
 
     for(int i = 0; i < 8; i ++) {
         for(int j = 0; j < 8; j ++) {
-//            QColor color = ((i+j)%2==0) ? light : dark;
-//            chess[i][j] = new MyGraphicsItem(i, j, color);
             if(side == 0)
                 chess[i][j]->setPos((7-j)*60, i*60);
             else
                 chess[i][j]->setPos(j*60, (7-i)*60);
-//            m_scene->addItem(chess[i][j]);
         }
     }
-
-//    QGraphicsRectItem *item = new QGraphicsRectItem(-30,-30,480,480);
-//    QPen pen(Qt::black, 5);
-//    item->setPen(pen);
-//    m_scene->addItem(item);
-
     update();
 }
 
@@ -209,12 +194,12 @@ void MainWindow::startConnection(QString ipAddress) {
 
 void MainWindow::connectTimeout() {
     QMessageBox::critical(this, "timeout", "Connect Timeout!");
-    disconnect();
+    disconnect1();
 }
 
 void MainWindow::acceptConnection()
 {
-    this->readWriteSocket =this->listenSocket->nextPendingConnection();
+    this->readWriteSocket = this->listenSocket->nextPendingConnection();
     emit connectSuccess();
     listenSocket->close();
     connected = true;
@@ -227,7 +212,7 @@ void MainWindow::acceptConnection()
     //connect(config, SIGNAL(gameConfigResult(QString)), this, SLOT(newGame_Passive()));
     //config->show();
     //newGame_Passive();
-    connect(this->readWriteSocket, SIGNAL(disconnected()), this, SLOT(disconnect()));
+    connect(this->readWriteSocket, SIGNAL(disconnected()), this, SLOT(disconnect1()));
     connect(this->readWriteSocket,SIGNAL(readyRead()),this,SLOT(recvMessage()));
     QMessageBox::information(this, "success", "Connection established.");
 }
@@ -247,10 +232,10 @@ void MainWindow::gameConfig(QString result) {
     QString oppoTime = QString::number(timeLimit);
     QString block;
     if(!flag)
-        block = "Config-" + oppoSide + "-" + oppoLimit + "-" + oppoTime;
+        block = "Config-" + oppoSide + "-" + oppoLimit + "-" + oppoTime + "\n";
     else {
         //QMessageBox::information(this, "a", "A");
-        block = "ConLoad-" + oppoSide + "-" + oppoLimit + "-" + oppoTime;
+        block = "ConLoad-" + oppoSide + "-" + oppoLimit + "-" + oppoTime + "\n";
     }
     readWriteSocket->write(block.toLatin1().data());
 }
@@ -263,163 +248,154 @@ void MainWindow::acceptStart() {
 void MainWindow::recvMessage()
 {
     qDebug() << "read";
-    QString info;
+    QString info1;
     //QDataStream stream(readWriteSocket);
     //stream >> info;
-    info += this->readWriteSocket->readAll();
-    qDebug() << info;
-    if(info == "Admit defeat") {
-        QMessageBox::information(this, "information", "Opponent admits defeat. You win!");
-        readWriteSocket->write("Defeat information get");
-        //stream << "Defeat information get";
-        endGame();
-    }
-    else if(info == "Defeat information get") {
-        QMessageBox::information(this, "information", "You Lose!");
-        endGame();
-    }
-    else if(info == "Ask draw") {
-        timer->stop();
-        ui->turnLabel->setText("WAITING DECISION ...");
-        QMessageBox::StandardButton reply = QMessageBox::question(this, "Ask for draw", "Opponent asks for a draw. Do you agree?");
-        if(reply == QMessageBox::No) {
-            readWriteSocket->write("Refuse draw");
-            timer->start(1000);
-            turnUpdate();
-        }
-        else {
-            readWriteSocket->write("Accept draw");
-            QMessageBox::information(this, "Draw", "Draw!");
+    info1 += this->readWriteSocket->readAll();
+    QStringList inList = info1.split("\n", QString::SkipEmptyParts);
+    //qDebug() << info;
+    QString info;
+    for(int i = 0; i < inList.size(); i ++) {
+        info = inList.at(i);
+        qDebug() << info;
+        if(info == "Admit defeat") {
+            QMessageBox::information(this, "information", "Opponent admits defeat. You win!");
+            readWriteSocket->write("Defeat information get\n");
+            //stream << "Defeat information get";
             endGame();
         }
-    }
-    else if(info == "Refuse draw") {
-        timer->start(1000);
-        QMessageBox::information(this, "Reply", "Opponent refuses a draw!");
-        turnUpdate();
-    }
-    else if(info == "Accept draw") {
-        QMessageBox::information(this, "Reply", "Opponent accepts a draw!");
-        endGame();
-    }
-    else if(info == "New game") {
-        ui->turnLabel->setText("NEW GAME!");
-        update();
-    }
-    else if(info == "Ask new game") {
-        QMessageBox::information(this, "New game", "Client asks for a new game");
-        newGame();
-    }
-    else if(info.left(6) == "Config") {
-        int in_side, in_enable, in_time;
-        sscanf(info.toLatin1().data(), "Config-%d-%d-%d", &in_side, &in_enable, &in_time);
-        side = (in_side) ? true : false;
-        limitEnable = (in_enable) ? true : false;
-        if(limitEnable)
-            timeLimit = in_time;
-        //QString sideString = (side)?"white":"black";
-        clientGameConfig *dialog = new clientGameConfig;
-        dialog->setSide(side);
-        dialog->setTimeLimit(limitEnable, timeLimit);
-        dialog->show();
-        connect(dialog, SIGNAL(startGame()), this, SLOT(acceptStart()));
-        //readWriteSocket->write("Game start");
-    }
-    else if(info.left(7) == "ConLoad") {
-        int in_side, in_enable, in_time;
-        sscanf(info.toLatin1().data(), "ConLoad-%d-%d-%d", &in_side, &in_enable, &in_time);
-        side = (in_side) ? true : false;
-        limitEnable = (in_enable) ? true : false;
-        if(limitEnable)
-            timeLimit = in_time;
-        //QString sideString = (side)?"white":"black";
-        clientGameConfig *dialog = new clientGameConfig;
-        dialog->setSide(side);
-        dialog->setTimeLimit(limitEnable, timeLimit);
-        dialog->show();
-        connect(dialog, SIGNAL(startGame()), this, SLOT(askLoad()));
-    }
-    else if(info == "Game start") {
-        newGame_Passive();
-    }
-    else if(info.left(5) == "Click") {
-        int row, col;
-        sscanf(info.toLatin1().data(), "Click %d-%d", &row, &col);
-        clickChess(row, col);
-        getAccessible(row, col);
-        paintAccessible();
-        prevRow = row;
-        prevCol = col;
-    }
-    else if(info.left(4) == "Move") {
-        int row, col;
-        sscanf(info.toLatin1().data(), "Move %d-%d", &row, &col);
-        if(row == prevRow && col == prevCol) {
-            chess[prevRow][prevCol]->setMargin(Qt::transparent);
-            cleanAccessible();
-            prevRow = prevCol = -1;
+        else if(info == "Defeat information get") {
+            QMessageBox::information(this, "information", "You Lose!");
+            endGame();
         }
-        else {
+        else if(info == "Ask draw") {
+            timer->stop();
+            ui->turnLabel->setText("WAITING DECISION ...");
+            QMessageBox::StandardButton reply = QMessageBox::question(this, "Ask for draw", "Opponent asks for a draw. Do you agree?");
+            if(reply == QMessageBox::No) {
+                readWriteSocket->write("Refuse draw\n");
+                if(limitEnable)
+                    timer->start(1000);
+                turnUpdate();
+            }
+            else {
+                readWriteSocket->write("Accept draw\n");
+                QMessageBox::information(this, "Draw", "Draw!");
+                endGame();
+            }
+        }
+        else if(info == "Refuse draw") {
+            if(limitEnable)
+                timer->start(1000);
+            QMessageBox::information(this, "Reply", "Opponent refuses a draw!");
+            turnUpdate();
+        }
+        else if(info == "Accept draw") {
+            QMessageBox::information(this, "Reply", "Opponent accepts a draw!");
+            endGame();
+        }
+        else if(info == "New game") {
+            ui->turnLabel->setText("NEW GAME!");
+            update();
+        }
+        else if(info == "Ask new game") {
+            //QMessageBox::information(this, "New game", "Client asks for a new game");
+            newGame();
+        }
+        else if(info.left(6) == "Config") {
+            int in_side, in_enable, in_time;
+            sscanf(info.toLatin1().data(), "Config-%d-%d-%d", &in_side, &in_enable, &in_time);
+            side = (in_side) ? true : false;
+            limitEnable = (in_enable) ? true : false;
+            if(limitEnable)
+                timeLimit = in_time;
+            //QString sideString = (side)?"white":"black";
+            clientGameConfig *dialog = new clientGameConfig;
+            dialog->setSide(side);
+            dialog->setTimeLimit(limitEnable, timeLimit);
+            dialog->show();
+            connect(dialog, SIGNAL(startGame()), this, SLOT(acceptStart()));
+            //readWriteSocket->write("Game start");
+        }
+        else if(info.left(7) == "ConLoad") {
+            int in_side, in_enable, in_time;
+            sscanf(info.toLatin1().data(), "ConLoad-%d-%d-%d", &in_side, &in_enable, &in_time);
+            side = (in_side) ? true : false;
+            limitEnable = (in_enable) ? true : false;
+            if(limitEnable)
+                timeLimit = in_time;
+            //QString sideString = (side)?"white":"black";
+            clientGameConfig *dialog = new clientGameConfig;
+            dialog->setSide(side);
+            dialog->setTimeLimit(limitEnable, timeLimit);
+            dialog->show();
+            connect(dialog, SIGNAL(startGame()), this, SLOT(askLoad()));
+        }
+        else if(info == "Game start") {
+            newGame_Passive();
+        }
+        else if(info.left(5) == "Click") {
+            int row, col;
+            sscanf(info.toLatin1().data(), "Click %d-%d", &row, &col);
+            clickChess(row, col);
+            getAccessible(row, col);
+            paintAccessible();
+            prevRow = row;
+            prevCol = col;
+        }
+        else if(info.left(4) == "Move") {
+            int row, col;
+            sscanf(info.toLatin1().data(), "Move %d-%d", &row, &col);
+            if(row == prevRow && col == prevCol) {
+                chess[prevRow][prevCol]->setMargin(Qt::transparent);
+                cleanAccessible();
+                prevRow = prevCol = -1;
+            }
+            else {
+                moveChess(prevRow, prevCol, row, col);
+                cleanAccessible();
+                chess[prevRow][prevCol]->setMargin(Qt::transparent);
+                prevRow = prevCol = -1;
+                if(judge()) {
+                    stalemate();
+                }
+                cleanAccessible();
+                curSide = !curSide;
+                turnUpdate();
+                if(limitEnable) {
+                    timeRemain = timeLimit;
+                    updateTime();
+                    timer->start(1000);
+                }
+            }
+        }
+        else if(info == "Stalemate") {
+            QMessageBox::information(this, "Stalemate", "Stalemate!");
+            endGame();
+        }
+        else if(info.left(9) == "Checkmate") {
+            int kingRow, kingCol;
+            sscanf(info.toLatin1().data(), "Checkmate %d-%d", &kingRow, &kingCol);
+            chess[kingRow][kingCol]->setMargin(Qt::red);
+            moveChess(prevRow, prevCol, kingRow, kingCol);
+            QMessageBox::information(this, "Checkmate", "You lose!");
+            endGame();
+        }
+        else if(info.left(9) == "Promotion") {
+            int row, col, in;
+            sscanf(info.toLatin1().data(), "Promotion %d-%d-%d", &row, &col, &in);
+            QString target = "";
+            if(in == 1)
+                target = "queen";
+            else if(in == 2)
+                target = "rook";
+            else if(in == 3)
+                target = "knight";
+            else if(in == 4)
+                target = "bishop";
+            qDebug() << row << col << target;
             moveChess(prevRow, prevCol, row, col);
-            cleanAccessible();
-            chess[prevRow][prevCol]->setMargin(Qt::transparent);
-            prevRow = prevCol = -1;
-            if(judge()) {
-                stalemate();
-            }
-            cleanAccessible();
-            curSide = !curSide;
-            turnUpdate();
-            if(limitEnable) {
-                timeRemain = timeLimit;
-                updateTime();
-                timer->start(1000);
-            }
-        }
-    }
-    else if(info == "Stalemate") {
-        QMessageBox::information(this, "Stalemate", "Stalemate!");
-        endGame();
-    }
-    else if(info.left(9) == "Checkmate") {
-        int kingRow, kingCol;
-        sscanf(info.toLatin1().data(), "Checkmate %d-%d", &kingRow, &kingCol);
-        chess[kingRow][kingCol]->setMargin(Qt::red);
-        moveChess(prevRow, prevCol, kingRow, kingCol);
-        QMessageBox::information(this, "Checkmate", "You lose!");
-        endGame();
-    }
-    else if(info.left(9) == "Promotion") {
-        int row, col, in;
-        sscanf(info.toLatin1().data(), "Promotion %d-%d-%d", &row, &col, &in);
-        QString target = "";
-        if(in == 1)
-            target = "queen";
-        else if(in == 2)
-            target = "rook";
-        else if(in == 3)
-            target = "knight";
-        else if(in == 4)
-            target = "bishop";
-        qDebug() << row << col << target;
-        moveChess(prevRow, prevCol, row, col);
-        chess[row][col]->setChess(chess[row][col]->getSide(), target);
-        cleanAccessible();
-        chess[prevRow][prevCol]->setMargin(Qt::transparent);
-        prevRow = prevCol = -1;
-        judge();
-        curSide = !curSide;
-        turnUpdate();
-        if(limitEnable) {
-            timeRemain = timeLimit;
-            updateTime();
-            timer->start(1000);
-        }
-    }
-    else if(info.left(4) == "Long") {
-        if(info == "Long black") {
-            moveChess(7,4,7,2);
-            moveChess(7,0,7,3);
+            chess[row][col]->setChess(chess[row][col]->getSide(), target);
             cleanAccessible();
             chess[prevRow][prevCol]->setMargin(Qt::transparent);
             prevRow = prevCol = -1;
@@ -432,108 +408,125 @@ void MainWindow::recvMessage()
                 timer->start(1000);
             }
         }
-        else if(info == "Long white") {
-            moveChess(0,4,0,2);
-            moveChess(0,0,0,3);
-            cleanAccessible();
-            chess[prevRow][prevCol]->setMargin(Qt::transparent);
-            prevRow = prevCol = -1;
-            judge();
-            curSide = !curSide;
-            turnUpdate();
-            if(limitEnable) {
-                timeRemain = timeLimit;
-                updateTime();
-                timer->start(1000);
+        else if(info.left(4) == "Long") {
+            if(info == "Long black") {
+                moveChess(7,4,7,2);
+                moveChess(7,0,7,3);
+                cleanAccessible();
+                chess[prevRow][prevCol]->setMargin(Qt::transparent);
+                prevRow = prevCol = -1;
+                judge();
+                curSide = !curSide;
+                turnUpdate();
+                if(limitEnable) {
+                    timeRemain = timeLimit;
+                    updateTime();
+                    timer->start(1000);
+                }
+            }
+            else if(info == "Long white") {
+                moveChess(0,4,0,2);
+                moveChess(0,0,0,3);
+                cleanAccessible();
+                chess[prevRow][prevCol]->setMargin(Qt::transparent);
+                prevRow = prevCol = -1;
+                judge();
+                curSide = !curSide;
+                turnUpdate();
+                if(limitEnable) {
+                    timeRemain = timeLimit;
+                    updateTime();
+                    timer->start(1000);
+                }
             }
         }
-    }
-    else if(info.left(5) == "Short") {
-        if(info == "Short black") {
-            moveChess(7,4,7,6);
-            moveChess(7,7,7,5);
-            cleanAccessible();
-            chess[prevRow][prevCol]->setMargin(Qt::transparent);
-            prevRow = prevCol = -1;
-            judge();
-            curSide = !curSide;
-            turnUpdate();
-            if(limitEnable) {
-                timeRemain = timeLimit;
-                updateTime();
-                timer->start(1000);
+        else if(info.left(5) == "Short") {
+            if(info == "Short black") {
+                moveChess(7,4,7,6);
+                moveChess(7,7,7,5);
+                cleanAccessible();
+                chess[prevRow][prevCol]->setMargin(Qt::transparent);
+                prevRow = prevCol = -1;
+                judge();
+                curSide = !curSide;
+                turnUpdate();
+                if(limitEnable) {
+                    timeRemain = timeLimit;
+                    updateTime();
+                    timer->start(1000);
+                }
+            }
+            else if(info == "Short white") {
+                moveChess(0,4,0,6);
+                moveChess(0,7,0,5);
+                cleanAccessible();
+                chess[prevRow][prevCol]->setMargin(Qt::transparent);
+                prevRow = prevCol = -1;
+                judge();
+                curSide = !curSide;
+                turnUpdate();
+                if(limitEnable) {
+                    timeRemain = timeLimit;
+                    updateTime();
+                    timer->start(1000);
+                }
             }
         }
-        else if(info == "Short white") {
-            moveChess(0,4,0,6);
-            moveChess(0,7,0,5);
-            cleanAccessible();
-            chess[prevRow][prevCol]->setMargin(Qt::transparent);
-            prevRow = prevCol = -1;
-            judge();
-            curSide = !curSide;
-            turnUpdate();
-            if(limitEnable) {
-                timeRemain = timeLimit;
-                updateTime();
-                timer->start(1000);
+        else if(info == "Open") {
+            ui->turnLabel->setText("LOAD GAME");
+            endGame();
+            for(int i = 0; i < 8; i ++) {
+                for(int j = 0; j < 8; j ++) {
+                    chess[i][j]->setChess();
+                }
             }
+            repaint();
         }
-    }
-    else if(info == "Open") {
-        ui->turnLabel->setText("LOAD GAME");
-        endGame();
-        for(int i = 0; i < 8; i ++) {
-            for(int j = 0; j < 8; j ++) {
-                chess[i][j]->setChess();
+        else if(info == "AskLoad") {
+            loadGame();
+        }
+        else if(info == "AskOpen") {
+            QMessageBox::information(this, "open", "Client asks for loading a game");
+            openGame();
+        }
+        else if(info.startsWith("w") || info.startsWith("b")) {
+            if(info.startsWith("w"))
+                curSide = 1;
+            else
+                curSide = 0;
+            char *in = info.toLatin1().data();
+            int pos = 1;
+            for(int i = 0; i < 8; i ++) {
+                for(int j = 0; j < 8; j ++) {
+                    if(in[pos] == 'g')
+                        chess[i][j]->setChess("white", "king");
+                    else if(in[pos] == 'q')
+                        chess[i][j]->setChess("white", "queen");
+                    else if(in[pos] == 'r')
+                        chess[i][j]->setChess("white", "rook");
+                    else if(in[pos] == 'k')
+                        chess[i][j]->setChess("white", "knight");
+                    else if(in[pos] == 'h')
+                        chess[i][j]->setChess("white", "bishop");
+                    else if(in[pos] == 'p')
+                        chess[i][j]->setChess("white", "pawn");
+                    else if(in[pos] == 'G')
+                        chess[i][j]->setChess("black", "king");
+                    else if(in[pos] == 'Q')
+                        chess[i][j]->setChess("black", "queen");
+                    else if(in[pos] == 'R')
+                        chess[i][j]->setChess("black", "rook");
+                    else if(in[pos] == 'K')
+                        chess[i][j]->setChess("black", "knight");
+                    else if(in[pos] == 'H')
+                        chess[i][j]->setChess("black", "bishop");
+                    else if(in[pos] == 'P')
+                        chess[i][j]->setChess("black", "pawn");
+                    pos ++;
+                }
             }
+            loadStart();
         }
-        repaint();
-    }
-    else if(info == "AskLoad") {
-        loadGame();
-    }
-    else if(info == "AskOpen") {
-        QMessageBox::information(this, "open", "Client asks for loading a game");
-        openGame();
-    }
-    else if(info.startsWith("w") || info.startsWith("b")) {
-        if(info.startsWith("w"))
-            curSide = 1;
-        else
-            curSide = 0;
-        char *in = info.toLatin1().data();
-        int pos = 1;
-        for(int i = 0; i < 8; i ++) {
-            for(int j = 0; j < 8; j ++) {
-                if(in[pos] == 'g')
-                    chess[i][j]->setChess("white", "king");
-                else if(in[pos] == 'q')
-                    chess[i][j]->setChess("white", "queen");
-                else if(in[pos] == 'r')
-                    chess[i][j]->setChess("white", "rook");
-                else if(in[pos] == 'k')
-                    chess[i][j]->setChess("white", "knight");
-                else if(in[pos] == 'h')
-                    chess[i][j]->setChess("white", "bishop");
-                else if(in[pos] == 'p')
-                    chess[i][j]->setChess("white", "pawn");
-                else if(in[pos] == 'G')
-                    chess[i][j]->setChess("black", "king");
-                else if(in[pos] == 'Q')
-                    chess[i][j]->setChess("black", "queen");
-                else if(in[pos] == 'R')
-                    chess[i][j]->setChess("black", "rook");
-                else if(in[pos] == 'K')
-                    chess[i][j]->setChess("black", "knight");
-                else if(in[pos] == 'H')
-                    chess[i][j]->setChess("black", "bishop");
-                else if(in[pos] == 'P')
-                    chess[i][j]->setChess("black", "pawn");
-                pos ++;
-            }
-        }
-        loadStart();
     }
 }
 
@@ -546,14 +539,14 @@ void MainWindow::abort() {
         statusUpdate();
     }
     else {
-        disconnect();
+        disconnect1();
     }
 }
 
-void MainWindow::disconnect() {
+void MainWindow::disconnect1() {
     endGame();
-    readWriteSocket->disconnectFromHost();
-    readWriteSocket->close();
+    //readWriteSocket->disconnectFromHost();
+    readWriteSocket->deleteLater();
     readWriteSocket = nullptr;
     connected = false;
     statusUpdate();
@@ -563,9 +556,15 @@ void MainWindow::endGame(bool flag) {
     qDebug() << "endgame";
     if(!flag)
         ui->turnLabel->setText("GAME ENDED");
+    if(timer->isActive()) {
+        timer->stop();
+        ui->lcdNumber->display(0);
+        ui->lcdNumber->setDisabled(true);
+    }
     for(int i = 0; i < 8; i ++) {
         for(int j = 0; j < 8; j ++) {
             chess[i][j]->setActiveness(false);
+            disconnect(chess[i][j], SIGNAL(checkerClicked(int,int)), this, SLOT(checkerClicked(int,int)));
         }
     }
     activeness = false;
@@ -580,11 +579,11 @@ void MainWindow::newGame() {
     }
     ui->turnLabel->setText("WAITING CONFIG");
     if(config == nullptr) { //client
-        readWriteSocket->write("Ask new game");
+        readWriteSocket->write("Ask new game\n");
     }
     else {
         config->show();
-        readWriteSocket->write("New game");
+        readWriteSocket->write("New game\n");
     }
 }
 
@@ -597,6 +596,7 @@ void MainWindow::newGame_Passive() {
         for(int j = 0; j < 8; j ++) {
             chess[i][j]->setActiveness(true);
             chess[i][j]->setChess();
+            chess[i][j]->setMargin(Qt::transparent);
             connect(chess[i][j], SIGNAL(checkerClicked(int,int)), this, SLOT(checkerClicked(int,int)));
         }
     }
@@ -645,7 +645,7 @@ void MainWindow::giveUp() {
     if(reply == QMessageBox::No) {
         return;
     }
-    readWriteSocket->write("Admit defeat");
+    readWriteSocket->write("Admit defeat\n");
     //QTextStream stream(readWriteSocket);
     //stream << "Admit defeat";
 }
@@ -660,7 +660,7 @@ void MainWindow::askDraw() {
     }
     timer->stop();
     ui->turnLabel->setText("WATING REPLY ...");
-    readWriteSocket->write("Ask draw");
+    readWriteSocket->write("Ask draw\n");
 }
 
 void MainWindow::turnUpdate() {
@@ -1041,7 +1041,7 @@ void MainWindow::checkerClicked(int row, int col) {
                     chess[0][6]->setMargin(Qt::magenta);
                 }
             }
-            QString block = "Click " + QString::number(row) + "-" + QString::number(col);
+            QString block = "Click " + QString::number(row) + "-" + QString::number(col) + "\n";
             readWriteSocket->write(block.toLatin1().data());
         }
     }
@@ -1082,7 +1082,7 @@ void MainWindow::checkerClicked(int row, int col) {
             curSide = !curSide;
         }
         if(checkmate){
-            QString block = "Checkmate " + QString::number(row) + "-" + QString::number(col);
+            QString block = "Checkmate " + QString::number(row) + "-" + QString::number(col) + "\n";
             readWriteSocket->write(block.toLatin1().data());
             QMessageBox::information(this, "Checkmate", "You win!");
             endGame();
@@ -1097,7 +1097,7 @@ void MainWindow::checkerClicked(int row, int col) {
         else if(row == 7 && col == 2 && chess[row][col]->getType() == "king" && chess[row][col]->getSide() == "black") {
             moveChess(7,0,7,3);
             castling = true;
-            readWriteSocket->write("Long black");
+            readWriteSocket->write("Long black\n");
             turnUpdate();
             if(limitEnable) {
                 timeRemain = timeLimit;
@@ -1108,7 +1108,7 @@ void MainWindow::checkerClicked(int row, int col) {
         else if(row == 7 && col == 6 && chess[row][col]->getType() == "king" && chess[row][col]->getSide() == "black") {
             moveChess(7,7,7,5);
             castling = true;
-            readWriteSocket->write("Short black");
+            readWriteSocket->write("Short black\n");
             turnUpdate();
             if(limitEnable) {
                 timeRemain = timeLimit;
@@ -1119,7 +1119,7 @@ void MainWindow::checkerClicked(int row, int col) {
         else if(row == 0 && col == 2 && chess[row][col]->getType() == "king" && chess[row][col]->getSide() == "white") {
             moveChess(0,0,0,3);
             castling = true;
-            readWriteSocket->write("Long white");
+            readWriteSocket->write("Long white\n");
             turnUpdate();
             if(limitEnable) {
                 timeRemain = timeLimit;
@@ -1130,7 +1130,7 @@ void MainWindow::checkerClicked(int row, int col) {
         else if(row == 0 && col == 6 && chess[row][col]->getType() == "king" && chess[row][col]->getSide() == "white") {
             moveChess(0,7,0,5);
             castling = true;
-            readWriteSocket->write("Short white");
+            readWriteSocket->write("Short white\n");
             turnUpdate();
             if(limitEnable) {
                 timeRemain = timeLimit;
@@ -1139,7 +1139,7 @@ void MainWindow::checkerClicked(int row, int col) {
             }
         }
         else {
-            QString block = "Move " + QString::number(row) + "-" + QString::number(col);
+            QString block = "Move " + QString::number(row) + "-" + QString::number(col) + "\n";
             readWriteSocket->write(block.toLatin1().data());
             turnUpdate();
             if(limitEnable) {
@@ -1163,7 +1163,7 @@ void MainWindow::promote(QString target, int row, int col) {
         out = 3;
     else if(target == "bishop")
         out = 4;
-    QString block = "Promotion " + QString::number(row) + "-" + QString::number(col) + "-" + QString::number(out);
+    QString block = "Promotion " + QString::number(row) + "-" + QString::number(col) + "-" + QString::number(out) + "\n";
     readWriteSocket->write(block.toLatin1().data());
     turnUpdate();
     if(limitEnable) {
@@ -1175,25 +1175,36 @@ void MainWindow::promote(QString target, int row, int col) {
 
 bool MainWindow::judge() {
     getControl();
+//    for(int i = 0; i < 8; i ++) {
+//        for(int j = 0; j < 8; j ++) {
+//            std::cout << oppoControl[i][j] << " ";
+//        }
+//        std::cout << std::endl;
+//    }
     for(int i = 0; i < 8; i ++) {
         for(int j = 0; j < 8; j ++) {
             if(chess[i][j]->getSide() == side2String(side)) {
                 if(chess[i][j]->getType() != "king") {
                     cleanAccessible();
                     getAccessible(i,j);
+                    qDebug() << i << j << chess[i][j]->getType() << accessible.size();
                     if(accessible.size() != 0)
                         return false;
                     cleanAccessible();
                 }
                 else {
                     if(oppoControl[i][j] != 0) {
+                        qDebug() << "!!!!!";
                         return false;
                     }
                     cleanAccessible();
                     getAccessible(i,j);
                     for(int k = 0; k < accessible.size(); k ++) {
-                        if(oppoControl[i][j] == 0)
+                        qDebug() << "?????";
+                        if(oppoControl[accessible[k].row][accessible[k].col] == 0) {
+                            qDebug() << accessible[k].row << accessible[k].col;
                             return false;
+                        }
                     }
                     cleanAccessible();
                 }
@@ -1215,84 +1226,64 @@ void MainWindow::getControl() {
             if(cur->getSide() == side2String(!side)) {
                 if(cur->getType() == "pawn") {
                     if(cur->getSide() == "white") {
-                        if(chess[row+1][col]->getSide() == "") {
-                            oppoControl[row+1][col] ++;
-                        }
-                        if(chess[row+1][col+1]->getSide() == "black"){
                             oppoControl[row+1][col+1] ++;
-                        }
-                        if(chess[row+1][col-1]->getSide() == "black"){
                             oppoControl[row+1][col-1] ++;
-                        }
-                        if(row == 1 && chess[row+2][col]->getSide() == ""){
-                            oppoControl[row+2][col] ++;
-                        }
                     }
                     else {
-                        if(chess[row-1][col]->getSide() == "") {
-                            oppoControl[row-1][col] ++;
-                        }
-                        if(chess[row-1][col+1]->getSide() == "white"){
                             oppoControl[row-1][col+1] ++;
-                        }
-                        if(chess[row-1][col-1]->getSide() == "white"){
                             oppoControl[row-1][col-1]++;
-                        }
-                        if(row == 6 && chess[row-2][col]->getSide() == ""){
-                            oppoControl[row-2][col] ++;
-                        }
                     }
                 }
                 else if(cur->getType() == "king") {
-                    if(row+1 < 8 && col+1 < 8 && chess[row+1][col+1]->getSide() != cur->getSide()) {
+                    if(row+1 < 8 && col+1 < 8) {
                         oppoControl[row+1][col+1] ++;
                     }
-                    if(row+1 < 8 && chess[row+1][col]->getSide() != cur->getSide()) {
+                    if(row+1 < 8) {
                         oppoControl[row+1][col] ++;
                     }
-                    if(row+1 < 8 && col-1 >= 0 && chess[row+1][col-1]->getSide() != cur->getSide()) {
+                    if(row+1 < 8) {
                         oppoControl[row+1][col-1] ++;
                     }
-                    if(col+1 < 8 && chess[row][col+1]->getSide() != cur->getSide()) {
+                    if(col+1 < 8) {
                         oppoControl[row][col+1] ++;
                     }
-                    if(col-1 >= 0 && chess[row][col-1]->getSide() != cur->getSide()) {
+                    if(col-1 >= 0) {
                         oppoControl[row][col-1] ++;
                     }
-                    if(row-1 >= 0 && col+1 < 8 && chess[row-1][col+1]->getSide() != cur->getSide()) {
+                    if(row-1 >= 0 && col+1 < 8) {
                         oppoControl[row-1][col+1] ++;
                     }
-                    if(row-1 >= 0 && chess[row-1][col]->getSide() != cur->getSide()) {
+                    if(row-1 >= 0) {
                         oppoControl[row-1][col] ++;
                     }
-                    if(row-1 >= 0 && col-1 >= 0 && chess[row-1][col-1]->getSide() != cur->getSide()) {
+                    if(row-1 >= 0 && col-1 >= 0) {
                         oppoControl[row-1][col-1] ++;
                     }
                 }
                 else if(cur->getType() == "rook") {
                     int delta = 1;
-                    while(row-delta >= 0 && chess[row-delta][col]->getSide() != cur->getSide()) {
+                    while(row-delta >= 0) {
                         oppoControl[row-delta][col] ++;
                         if(chess[row-delta][col]->getSide() != "")
                             break;
                         delta ++;
                     }
                     delta = 1;
-                    while(row+delta < 8 && chess[row+delta][col]->getSide() != cur->getSide()) {
+                    while(row+delta < 8) {
                         oppoControl[row+delta][col] ++;
                         if(chess[row+delta][col]->getSide() != "")
                             break;
                         delta ++;
                     }
                     delta = 1;
-                    while(col-delta >= 0 && chess[row][col-delta]->getSide() != cur->getSide()) {
+                    while(col-delta >= 0) {
                         oppoControl[row][col-delta] ++;
                         if(chess[row][col-delta]->getSide() != "")
                             break;
                         delta ++;
                     }
                     delta = 1;
-                    while(col+delta < 8 && chess[row][col+delta]->getSide() != cur->getSide()) {
+                    while(col+delta < 8) {
                         oppoControl[row][col+delta] ++;
                         if(chess[row][col+delta]->getSide() != "")
                             break;
@@ -1301,28 +1292,28 @@ void MainWindow::getControl() {
                 }
                 else if(cur->getType() == "bishop") {
                     int delta = 1;
-                    while(row-delta >= 0 && col-delta >= 0 && chess[row-delta][col-delta]->getSide() != cur->getSide()) {
+                    while(row-delta >= 0 && col-delta >= 0) {
                         oppoControl[row-delta][col-delta] ++;
                         if(chess[row-delta][col-delta]->getSide() != "")
                             break;
                         delta ++;
                     }
                     delta = 1;
-                    while(row-delta >= 0 && col+delta < 8 && chess[row-delta][col+delta]->getSide() != cur->getSide()) {
+                    while(row-delta >= 0 && col+delta < 8) {
                         oppoControl[row-delta][col+delta] ++;
                         if(chess[row-delta][col+delta]->getSide() != "")
                             break;
                         delta ++;
                     }
                     delta = 1;
-                    while(row+delta < 8 && col-delta >= 0 && chess[row+delta][col-delta]->getSide() != cur->getSide()) {
+                    while(row+delta < 8 && col-delta >= 0) {
                         oppoControl[row+delta][col-delta] ++;
                         if(chess[row+delta][col-delta]->getSide() != "")
                             break;
                         delta ++;
                     }
                     delta = 1;
-                    while(row+delta < 8 && col+delta < 8 && chess[row+delta][col+delta]->getSide() != cur->getSide()) {
+                    while(row+delta < 8 && col+delta < 8) {
                         oppoControl[row+delta][col+delta] ++;
                         if(chess[row+delta][col+delta]->getSide() != "")
                             break;
@@ -1331,56 +1322,56 @@ void MainWindow::getControl() {
                 }
                 else if(cur->getType() == "queen") {
                     int delta = 1;
-                    while(row-delta >= 0 && chess[row-delta][col]->getSide() != cur->getSide()) {
+                    while(row-delta >= 0) {
                         oppoControl[row-delta][col] ++;
                         if(chess[row-delta][col]->getSide() != "")
                             break;
                         delta ++;
                     }
                     delta = 1;
-                    while(row+delta < 8 && chess[row+delta][col]->getSide() != cur->getSide()) {
+                    while(row+delta < 8) {
                         oppoControl[row+delta][col] ++;
                         if(chess[row+delta][col]->getSide() != "")
                             break;
                         delta ++;
                     }
                     delta = 1;
-                    while(col-delta >= 0 && chess[row][col-delta]->getSide() != cur->getSide()) {
+                    while(col-delta >= 0) {
                         oppoControl[row][col-delta] ++;
                         if(chess[row][col-delta]->getSide() != "")
                             break;
                         delta ++;
                     }
                     delta = 1;
-                    while(col+delta < 8 && chess[row][col+delta]->getSide() != cur->getSide()) {
+                    while(col+delta < 8) {
                         oppoControl[row][col+delta] ++;
                         if(chess[row][col+delta]->getSide() != "")
                             break;
                         delta ++;
                     }
                     delta = 1;
-                    while(row-delta >= 0 && col-delta >= 0 && chess[row-delta][col-delta]->getSide() != cur->getSide()) {
+                    while(row-delta >= 0 && col-delta >= 0) {
                         oppoControl[row-delta][col-delta] ++;
                         if(chess[row-delta][col-delta]->getSide() != "")
                             break;
                         delta ++;
                     }
                     delta = 1;
-                    while(row-delta >= 0 && col+delta < 8 && chess[row-delta][col+delta]->getSide() != cur->getSide()) {
+                    while(row-delta >= 0 && col+delta < 8) {
                         oppoControl[row-delta][col+delta] ++;
                         if(chess[row-delta][col+delta]->getSide() != "")
                             break;
                         delta ++;
                     }
                     delta = 1;
-                    while(row+delta < 8 && col-delta >= 0 && chess[row+delta][col-delta]->getSide() != cur->getSide()) {
+                    while(row+delta < 8 && col-delta >= 0) {
                         oppoControl[row+delta][col-delta] ++;
                         if(chess[row+delta][col-delta]->getSide() != "")
                             break;
                         delta ++;
                     }
                     delta = 1;
-                    while(row+delta < 8 && col+delta < 8 && chess[row+delta][col+delta]->getSide() != cur->getSide()) {
+                    while(row+delta < 8 && col+delta < 8) {
                         oppoControl[row+delta][col+delta] ++;
                         if(chess[row+delta][col+delta]->getSide() != "")
                             break;
@@ -1389,28 +1380,28 @@ void MainWindow::getControl() {
 
                 }
                 else if(cur->getType() == "knight") {
-                    if(row+2 < 8 && col+1 < 8 && chess[row+2][col+1]->getSide() != cur->getSide()) {
+                    if(row+2 < 8 && col+1 < 8) {
                         oppoControl[row+2][col+1] ++;
                     }
-                    if(row+2 < 8 && col-1 >= 0 && chess[row+2][col-1]->getSide() != cur->getSide()) {
+                    if(row+2 < 8 && col-1 >= 0) {
                         oppoControl[row+2][col-1] ++;
                     }
-                    if(row-2 >= 0 && col+1 < 8 && chess[row-2][col+1]->getSide() != cur->getSide()) {
+                    if(row-2 >= 0 && col+1 < 8) {
                         oppoControl[row-2][col+1] ++;
                     }
-                    if(row-2 >= 0 && col-1 >= 0 && chess[row-2][col-1]->getSide() != cur->getSide()) {
+                    if(row-2 >= 0 && col-1 >= 0) {
                         oppoControl[row-2][col-1] ++;
                     }
-                    if(row+1 < 8 && col+2 < 8 && chess[row+1][col+2]->getSide() != cur->getSide()) {
+                    if(row+1 < 8 && col+2 < 8) {
                         oppoControl[row+1][col+2] ++;
                     }
-                    if(row+1 < 8 && col-2 >= 0 && chess[row+1][col-2]->getSide() != cur->getSide()) {
+                    if(row+1 < 8 && col-2 >= 0) {
                         oppoControl[row+1][col-2] ++;
                     }
-                    if(row-1 >= 0 && col+2 < 8 && chess[row-1][col+2]->getSide() != cur->getSide()) {
+                    if(row-1 >= 0 && col+2 < 8) {
                         oppoControl[row-1][col+2] ++;
                     }
-                    if(row-1 >= 0 && col-2 >= 0 && chess[row-1][col-2]->getSide() != cur->getSide()) {
+                    if(row-1 >= 0 && col-2 >= 0) {
                         oppoControl[row-1][col-2] ++;
                     }
                 }
@@ -1420,7 +1411,7 @@ void MainWindow::getControl() {
 }
 
 void MainWindow::stalemate() {
-    readWriteSocket->write("Stalemate");
+    readWriteSocket->write("Stalemate\n");
     QMessageBox::information(this, "Stalemate", "Stalemate!");
     endGame();
 }
@@ -1432,15 +1423,18 @@ void MainWindow::openGame() {
     for(int i = 0; i < 8; i ++) {
         for(int j = 0; j < 8; j ++) {
             chess[i][j]->setChess();
+            chess[i][j]->setMargin(Qt::transparent);
         }
     }
     if(config == nullptr) { //client
         ui->turnLabel->setText("LOAD GAME!");
-        update();
-        readWriteSocket->write("AskOpen");
+        repaint();
+        readWriteSocket->write("AskOpen\n");
     }
     else {
-        readWriteSocket->write("Open");
+        ui->turnLabel->setText("LOAD GAME!");
+        repaint();
+        readWriteSocket->write("Open\n");
         serverGameConfig *newConfig = new serverGameConfig(true);
         newConfig->setModal(false);
         connect(newConfig, SIGNAL(gameConfigResult(QString)), this, SLOT(gameConfig(QString)));
@@ -1449,7 +1443,7 @@ void MainWindow::openGame() {
 }
 
 void MainWindow::askLoad() {
-    readWriteSocket->write("AskLoad");
+    readWriteSocket->write("AskLoad\n");
 }
 
 void MainWindow::loadGame() {
@@ -1548,6 +1542,7 @@ void MainWindow::loadGame() {
             }
         }
     }
+    block += "\n";
     readWriteSocket->write(block.toLatin1().data());
     loadStart();
 }
@@ -1555,7 +1550,14 @@ void MainWindow::loadGame() {
 void MainWindow::loadStart() {
     for(int i = 0; i < 8; i ++) {
         for(int j = 0; j < 8; j ++) {
+            chess[i][j]->setMargin(Qt::transparent);
+        }
+    }
+    initBoard();
+    for(int i = 0; i < 8; i ++) {
+        for(int j = 0; j < 8; j ++) {
             chess[i][j]->setActiveness(true);
+            connect(chess[i][j], SIGNAL(checkerClicked(int,int)), this, SLOT(checkerClicked(int,int)));
         }
     }
     activeness = true;
@@ -1564,7 +1566,6 @@ void MainWindow::loadStart() {
     castling = false;
     turnUpdate();
     initTimer();
-    initBoard();
     repaint();
 }
 

@@ -50,7 +50,7 @@ public slots:
     void startConnection(QString);
     void acceptConnection();
     void connectTimeout();
-    void disconnect();
+    void disconnect1();
     void abort();
     void recvMessage();
     void gameConfig(QString);

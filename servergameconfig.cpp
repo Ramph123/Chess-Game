@@ -2,9 +2,10 @@
 #include "ui_servergameconfig.h"
 #include <QDebug>
 
-serverGameConfig::serverGameConfig(QWidget *parent) :
+serverGameConfig::serverGameConfig(bool flag, QWidget *parent) :
     QDialog(parent),
-    ui(new Ui::serverGameConfig)
+    ui(new Ui::serverGameConfig),
+    flag(flag)
 {
     ui->setupUi(this);
 
@@ -47,7 +48,7 @@ void serverGameConfig::timeChanged(int time) {
 }
 
 void serverGameConfig::sendSignal() {
-    QString sig = QString::number(side) + "-" + QString::number(limitEnable) + "-" + QString::number(timeLimit);
+    QString sig = QString::number(side) + "-" + QString::number(limitEnable) + "-" + QString::number(timeLimit) + "-" + QString::number(flag);
     emit gameConfigResult(sig);
     accept();
 }

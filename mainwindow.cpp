@@ -5,6 +5,8 @@
 #include "promotiondialog.h"
 #include <QTimer>
 #include <iostream>
+#include <QFile>
+#include <QFileDialog>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -31,6 +33,9 @@ MainWindow::MainWindow(QWidget *parent) :
     openAction = new QAction("Load game", this);
     openAction->setShortcuts(QKeySequence::Open);
     connect(openAction, &QAction::triggered, this, &MainWindow::openGame);
+    saveAction = new QAction("Save game", this);
+    saveAction->setShortcuts(QKeySequence::Save);
+    connect(saveAction, &QAction::triggered, this, &MainWindow::saveGame);
     newAction = new QAction("New Game", this);
     newAction->setShortcuts(QKeySequence::New);
     connect(newAction, &QAction::triggered, this, &MainWindow::newGame);
@@ -45,6 +50,7 @@ MainWindow::MainWindow(QWidget *parent) :
     fileMenu->addAction(connectionAction);
     fileMenu->addAction(newAction);
     fileMenu->addAction(openAction);
+    fileMenu->addAction(saveAction);
 
     QMenu *opMenu = menuBar()->addMenu(tr("Operation"));
     opMenu->addAction(giveUpAction);
@@ -164,8 +170,8 @@ void MainWindow::startConnection(QString ipAddress) {
             connected = true;
             statusUpdate();
             connect(this->readWriteSocket,SIGNAL(readyRead()),this,SLOT(recvMessage()));
-            //QMessageBox::information(this, "success", "Connection established. Please wait for server to configure the game.");
-            ui->turnLabel->setText("WAITING CONFIG");
+            QMessageBox::information(this, "success", "Connection established.");
+            //ui->turnLabel->setText("WAITING CONFIG");
             update();
         }
     }
@@ -183,22 +189,25 @@ void MainWindow::acceptConnection()
     listenSocket->close();
     connected = true;
     statusUpdate();
-    ui->turnLabel->setText("WAITING CONFIG");
-    update();
+    //ui->turnLabel->setText("WAITING CONFIG");
+    //update();
     config = new serverGameConfig;
     config->setModal(false);
     connect(config, SIGNAL(gameConfigResult(QString)), this, SLOT(gameConfig(QString)));
     //connect(config, SIGNAL(gameConfigResult(QString)), this, SLOT(newGame_Passive()));
-    config->show();
+    //config->show();
     //newGame_Passive();
     connect(this->readWriteSocket, SIGNAL(disconnected()), this, SLOT(disconnect()));
     connect(this->readWriteSocket,SIGNAL(readyRead()),this,SLOT(recvMessage()));
+    QMessageBox::information(this, "success", "Connection established.");
 }
 
 void MainWindow::gameConfig(QString result) {
-    int in_side, in_enable, in_time;
-    sscanf(result.toLatin1().data(), "%d-%d-%d", &in_side, &in_enable, &in_time);
+    int in_side, in_enable, in_time, in_flag;
+    sscanf(result.toLatin1().data(), "%d-%d-%d-%d", &in_side, &in_enable, &in_time, &in_flag);
     side = (in_side) ? true : false;
+    bool flag = (in_flag) ? true : false;
+    //qDebug() << "flag" << flag;
     limitEnable = (in_enable) ? true : false;
     if(limitEnable)
         timeLimit = in_time;
@@ -206,7 +215,13 @@ void MainWindow::gameConfig(QString result) {
     QString oppoSide = (side) ? "0" : "1";
     QString oppoLimit = (limitEnable) ? "1" : "0";
     QString oppoTime = QString::number(timeLimit);
-    QString block = "Config-" + oppoSide + "-" + oppoLimit + "-" + oppoTime;
+    QString block;
+    if(!flag)
+        block = "Config-" + oppoSide + "-" + oppoLimit + "-" + oppoTime;
+    else {
+        //QMessageBox::information(this, "a", "A");
+        block = "ConLoad-" + oppoSide + "-" + oppoLimit + "-" + oppoTime;
+    }
     readWriteSocket->write(block.toLatin1().data());
 }
 
@@ -229,7 +244,7 @@ void MainWindow::recvMessage()
         //stream << "Defeat information get";
         endGame();
     }
-    else if (info == "Defeat information get") {
+    else if(info == "Defeat information get") {
         QMessageBox::information(this, "information", "You Lose!");
         endGame();
     }
@@ -281,6 +296,20 @@ void MainWindow::recvMessage()
         connect(dialog, SIGNAL(startGame()), this, SLOT(acceptStart()));
         //readWriteSocket->write("Game start");
     }
+    else if(info.left(7) == "ConLoad") {
+        int in_side, in_enable, in_time;
+        sscanf(info.toLatin1().data(), "ConLoad-%d-%d-%d", &in_side, &in_enable, &in_time);
+        side = (in_side) ? true : false;
+        limitEnable = (in_enable) ? true : false;
+        if(limitEnable)
+            timeLimit = in_time;
+        //QString sideString = (side)?"white":"black";
+        clientGameConfig *dialog = new clientGameConfig;
+        dialog->setSide(side);
+        dialog->setTimeLimit(limitEnable, timeLimit);
+        dialog->show();
+        connect(dialog, SIGNAL(startGame()), this, SLOT(askLoad()));
+    }
     else if(info == "Game start") {
         newGame_Passive();
     }
@@ -309,6 +338,7 @@ void MainWindow::recvMessage()
             if(judge()) {
                 stalemate();
             }
+            cleanAccessible();
             curSide = !curSide;
             turnUpdate();
             if(limitEnable) {
@@ -421,6 +451,27 @@ void MainWindow::recvMessage()
             }
         }
     }
+    else if(info == "AskLoad") {
+        loadGame();
+    }
+    else if(info == "AskOpen") {
+        QMessageBox::information(this, "open", "Client asks for loading a game");
+        openGame();
+    }
+    else if(info == "Setside") {
+        int in_side;
+        sscanf(info.toLatin1().data(), "Setside %d", &in_side);
+        curSide = (in_side) ? 1 : 0;
+    }
+    else if(info == "Setchess") {
+        QStringList list = info.split(" ");
+        int row = list.at(2).toInt();
+        int col = list.at(3).toInt();
+        chess[row][col]->setChess(list.at(4), list.at(5));
+    }
+    else if(info == "Loadend") {
+        loadStart();
+    }
 }
 
 void MainWindow::abort() {
@@ -455,10 +506,6 @@ void MainWindow::endGame(bool flag) {
         }
     }
     activeness = false;
-}
-
-void MainWindow::openGame() {
-    //
 }
 
 void MainWindow::newGame() {
@@ -1083,6 +1130,7 @@ bool MainWindow::judge() {
                         if(oppoControl[i][j] == 0)
                             return false;
                     }
+                    cleanAccessible();
                 }
             }
         }
@@ -1310,4 +1358,116 @@ void MainWindow::stalemate() {
     readWriteSocket->write("Stalemate");
     QMessageBox::information(this, "Stalemate", "Stalemate!");
     endGame();
+}
+
+void MainWindow::openGame() {
+    if(!connected)
+        return;
+    endGame();
+    for(int i = 0; i < 8; i ++) {
+        for(int j = 0; j < 8; j ++) {
+            chess[i][j]->setChess();
+        }
+    }
+    if(config == nullptr) { //client
+        readWriteSocket->write("AskOpen");
+    }
+    else {
+        serverGameConfig *newConfig = new serverGameConfig(true);
+        newConfig->setModal(false);
+        connect(newConfig, SIGNAL(gameConfigResult(QString)), this, SLOT(gameConfig(QString)));
+        newConfig->show();
+    }
+}
+
+void MainWindow::askLoad() {
+    readWriteSocket->write("AskLoad");
+}
+
+void MainWindow::loadGame() {
+    //QMessageBox::information(this, "load", "load");
+    QString path = QFileDialog::getOpenFileName(nullptr,"Open",QDir::homePath(),"Text File(*.txt)");
+    QFile *file = new QFile(path);
+    QStringList inputList;
+    if(file->exists()) {
+        file->open(QIODevice::ReadOnly | QIODevice::Text);
+        while (!file->atEnd()) {
+            QByteArray line = file->readLine();
+            QString str(line);
+            str.chop(1);
+            inputList.append(str);
+        }
+        file->close();
+    }
+    qDebug() << inputList;
+    curSide = (inputList.at(0) == "white") ? 1 : 0;
+    QString block = "Setside " + QString::number(curSide);
+    readWriteSocket->write(block.toLatin1().data());
+    QString cur = inputList.at(0);
+    for(int i = 1; i < inputList.size(); i ++) {
+        QString command = inputList.at(i);
+        if(command == "black" || command == "white") {
+            cur = command;
+            continue;
+        }
+        QStringList list = command.split(" ");
+        QString type = list.at(0);
+        int row, col;
+        for(int j = 2; j < list.size(); j ++) {
+            char* in = list.at(j).toLatin1().data();
+            switch(in[0]) {
+                case 'a':
+                    col = 0;
+                    break;
+                case 'b':
+                    col = 1;
+                    break;
+                case 'c':
+                    col = 2;
+                    break;
+                case 'd':
+                    col = 3;
+                    break;
+                case 'e':
+                    col = 4;
+                    break;
+                case 'f':
+                    col = 5;
+                    break;
+                case 'g':
+                    col = 6;
+                    break;
+                case 'h':
+                    col = 7;
+                    break;
+            }
+            row = in[1] - '1';
+            chess[row][col]->setChess(cur, type);
+            block = "Setchess " + QString::number(row) + " " + QString::number(col) + " " + cur + " " + type;
+            readWriteSocket->write(block.toLatin1().data());
+        }
+    }
+    readWriteSocket->write("Loadend");
+    loadStart();
+}
+
+void MainWindow::loadStart() {
+    QMessageBox::information(this, "1", "1");
+    for(int i = 0; i < 8; i ++) {
+        for(int j = 0; j < 8; j ++) {
+            chess[i][j]->setActiveness(true);
+        }
+    }
+    activeness = true;
+    selected = 0;
+    prevRow = prevCol = -1;
+    castling = false;
+    turnUpdate();
+    initTimer();
+    repaint();
+}
+
+void MainWindow::saveGame() {
+    if(!activeness)
+        return;
 }

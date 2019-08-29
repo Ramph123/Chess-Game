@@ -12,7 +12,7 @@ class serverGameConfig : public QDialog
     Q_OBJECT
 
 public:
-    explicit serverGameConfig(QWidget *parent = nullptr);
+    explicit serverGameConfig(bool flag = false, QWidget *parent = nullptr);
     ~serverGameConfig();
 
 signals:
@@ -27,6 +27,8 @@ public slots:
 
 private:
     Ui::serverGameConfig *ui;
+
+    bool flag; // 0: new  1: load
 
     bool side; // 0: black  1: white
     bool limitEnable;

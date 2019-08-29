@@ -39,8 +39,12 @@ signals:
 public slots:
     void connection();
     void openGame();
+    void saveGame();
     void newGame();
     void newGame_Passive();
+    void loadGame();
+    void loadStart();
+    void askLoad();
     void giveUp();
     void askDraw();
     void startConnection(QString);
@@ -66,6 +70,7 @@ private:
     QAction *newAction;
     QAction *giveUpAction;
     QAction *drawAction;
+    QAction *saveAction;
 
     MyGraphicsItem *chess[8][8];
     void initChess();

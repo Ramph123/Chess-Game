@@ -73,6 +73,7 @@ private:
     QAction *saveAction;
 
     MyGraphicsItem *chess[8][8];
+    void initBoard();
     void initChess();
     void endGame(bool flag = false);
 

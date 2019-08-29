@@ -71,15 +71,20 @@ MainWindow::MainWindow(QWidget *parent) :
         for(int j = 0; j < 8; j ++) {
             QColor color = ((i+j)%2==0) ? light : dark;
             chess[i][j] = new MyGraphicsItem(i, j, color);
-            chess[i][j]->setPos(j*60, (7-i)*60);
+//            if(side == 0)
+//                chess[i][j]->setPos((7-j)*60, i*60);
+//            else
+                chess[i][j]->setPos(j*60, (7-i)*60);
             m_scene->addItem(chess[i][j]);
         }
     }
-    update();
+
     QGraphicsRectItem *item = new QGraphicsRectItem(-30,-30,480,480);
     QPen pen(Qt::black, 5);
     item->setPen(pen);
     m_scene->addItem(item);
+
+    update();
 }
 
 QString MainWindow::side2String(bool in) {
@@ -87,6 +92,31 @@ QString MainWindow::side2String(bool in) {
         return "white";
     else
         return "black";
+}
+
+void MainWindow::initBoard() {
+//    QColor dark, light;
+//    dark.setRgb(174,136,104);
+//    light.setRgb(237,218,185);
+
+    for(int i = 0; i < 8; i ++) {
+        for(int j = 0; j < 8; j ++) {
+//            QColor color = ((i+j)%2==0) ? light : dark;
+//            chess[i][j] = new MyGraphicsItem(i, j, color);
+            if(side == 0)
+                chess[i][j]->setPos((7-j)*60, i*60);
+            else
+                chess[i][j]->setPos(j*60, (7-i)*60);
+//            m_scene->addItem(chess[i][j]);
+        }
+    }
+
+//    QGraphicsRectItem *item = new QGraphicsRectItem(-30,-30,480,480);
+//    QPen pen(Qt::black, 5);
+//    item->setPen(pen);
+//    m_scene->addItem(item);
+
+    update();
 }
 
 void MainWindow::initChess() {
@@ -273,8 +303,7 @@ void MainWindow::recvMessage()
         endGame();
     }
     else if(info == "New game") {
-        QMessageBox::information(this, "New Game", "server starts a new game!");
-        ui->turnLabel->setText("WAITING CONFIG");
+        ui->turnLabel->setText("NEW GAME!");
         update();
     }
     else if(info == "Ask new game") {
@@ -451,6 +480,16 @@ void MainWindow::recvMessage()
             }
         }
     }
+    else if(info == "Open") {
+        ui->turnLabel->setText("LOAD GAME");
+        endGame();
+        for(int i = 0; i < 8; i ++) {
+            for(int j = 0; j < 8; j ++) {
+                chess[i][j]->setChess();
+            }
+        }
+        repaint();
+    }
     else if(info == "AskLoad") {
         loadGame();
     }
@@ -458,18 +497,42 @@ void MainWindow::recvMessage()
         QMessageBox::information(this, "open", "Client asks for loading a game");
         openGame();
     }
-    else if(info == "Setside") {
-        int in_side;
-        sscanf(info.toLatin1().data(), "Setside %d", &in_side);
-        curSide = (in_side) ? 1 : 0;
-    }
-    else if(info == "Setchess") {
-        QStringList list = info.split(" ");
-        int row = list.at(2).toInt();
-        int col = list.at(3).toInt();
-        chess[row][col]->setChess(list.at(4), list.at(5));
-    }
-    else if(info == "Loadend") {
+    else if(info.startsWith("w") || info.startsWith("b")) {
+        if(info.startsWith("w"))
+            curSide = 1;
+        else
+            curSide = 0;
+        char *in = info.toLatin1().data();
+        int pos = 1;
+        for(int i = 0; i < 8; i ++) {
+            for(int j = 0; j < 8; j ++) {
+                if(in[pos] == 'g')
+                    chess[i][j]->setChess("white", "king");
+                else if(in[pos] == 'q')
+                    chess[i][j]->setChess("white", "queen");
+                else if(in[pos] == 'r')
+                    chess[i][j]->setChess("white", "rook");
+                else if(in[pos] == 'k')
+                    chess[i][j]->setChess("white", "knight");
+                else if(in[pos] == 'h')
+                    chess[i][j]->setChess("white", "bishop");
+                else if(in[pos] == 'p')
+                    chess[i][j]->setChess("white", "pawn");
+                else if(in[pos] == 'G')
+                    chess[i][j]->setChess("black", "king");
+                else if(in[pos] == 'Q')
+                    chess[i][j]->setChess("black", "queen");
+                else if(in[pos] == 'R')
+                    chess[i][j]->setChess("black", "rook");
+                else if(in[pos] == 'K')
+                    chess[i][j]->setChess("black", "knight");
+                else if(in[pos] == 'H')
+                    chess[i][j]->setChess("black", "bishop");
+                else if(in[pos] == 'P')
+                    chess[i][j]->setChess("black", "pawn");
+                pos ++;
+            }
+        }
         loadStart();
     }
 }
@@ -529,6 +592,7 @@ void MainWindow::newGame_Passive() {
     ui->turnLabel->clear();
     if(activeness)
         return;
+    initBoard();
     for(int i = 0; i < 8; i ++) {
         for(int j = 0; j < 8; j ++) {
             chess[i][j]->setActiveness(true);
@@ -600,6 +664,7 @@ void MainWindow::askDraw() {
 }
 
 void MainWindow::turnUpdate() {
+    qDebug() << "current" << curSide << "side" << side;
     if(curSide == side) {
         ui->turnLabel->setText("YOUR TURN !");
     }
@@ -1370,9 +1435,12 @@ void MainWindow::openGame() {
         }
     }
     if(config == nullptr) { //client
+        ui->turnLabel->setText("LOAD GAME!");
+        update();
         readWriteSocket->write("AskOpen");
     }
     else {
+        readWriteSocket->write("Open");
         serverGameConfig *newConfig = new serverGameConfig(true);
         newConfig->setModal(false);
         connect(newConfig, SIGNAL(gameConfigResult(QString)), this, SLOT(gameConfig(QString)));
@@ -1401,8 +1469,6 @@ void MainWindow::loadGame() {
     }
     qDebug() << inputList;
     curSide = (inputList.at(0) == "white") ? 1 : 0;
-    QString block = "Setside " + QString::number(curSide);
-    readWriteSocket->write(block.toLatin1().data());
     QString cur = inputList.at(0);
     for(int i = 1; i < inputList.size(); i ++) {
         QString command = inputList.at(i);
@@ -1412,6 +1478,8 @@ void MainWindow::loadGame() {
         }
         QStringList list = command.split(" ");
         QString type = list.at(0);
+        if(list.size() < 3)
+            continue;
         int row, col;
         for(int j = 2; j < list.size(); j ++) {
             char* in = list.at(j).toLatin1().data();
@@ -1443,16 +1511,48 @@ void MainWindow::loadGame() {
             }
             row = in[1] - '1';
             chess[row][col]->setChess(cur, type);
-            block = "Setchess " + QString::number(row) + " " + QString::number(col) + " " + cur + " " + type;
-            readWriteSocket->write(block.toLatin1().data());
         }
     }
-    readWriteSocket->write("Loadend");
+    QString block = (curSide) ? "w" : "b";
+    for(int i = 0; i < 8; i ++) {
+        for(int j = 0; j < 8; j ++) {
+            if(chess[i][j]->getSide() == "")
+                block += "e";
+            else if(chess[i][j]->getSide() == "white") {
+                if(chess[i][j]->getType() == "king")
+                    block += "g";
+                else if(chess[i][j]->getType() == "queen")
+                    block += "q";
+                else if(chess[i][j]->getType() == "rook")
+                    block += "r";
+                else if(chess[i][j]->getType() == "knight")
+                    block += "k";
+                else if(chess[i][j]->getType() == "bishop")
+                    block += "h";
+                else if(chess[i][j]->getType() == "pawn")
+                    block += "p";
+            }
+            else if(chess[i][j]->getSide() == "black") {
+                if(chess[i][j]->getType() == "king")
+                    block += "G";
+                else if(chess[i][j]->getType() == "queen")
+                    block += "Q";
+                else if(chess[i][j]->getType() == "rook")
+                    block += "R";
+                else if(chess[i][j]->getType() == "knight")
+                    block += "K";
+                else if(chess[i][j]->getType() == "bishop")
+                    block += "H";
+                else if(chess[i][j]->getType() == "pawn")
+                    block += "P";
+            }
+        }
+    }
+    readWriteSocket->write(block.toLatin1().data());
     loadStart();
 }
 
 void MainWindow::loadStart() {
-    QMessageBox::information(this, "1", "1");
     for(int i = 0; i < 8; i ++) {
         for(int j = 0; j < 8; j ++) {
             chess[i][j]->setActiveness(true);
@@ -1464,10 +1564,126 @@ void MainWindow::loadStart() {
     castling = false;
     turnUpdate();
     initTimer();
+    initBoard();
     repaint();
 }
 
 void MainWindow::saveGame() {
     if(!activeness)
         return;
+    vector<Point> chessCnt[2][6];
+    for(int i = 0; i < 8; i ++) {
+        for(int j = 0; j < 8; j ++) {
+            if(chess[i][j]->getSide() == "black") {
+                if(chess[i][j]->getType() == "king") {
+                    Point p;
+                    p.row = i; p.col = j;
+                    chessCnt[0][0].push_back(p);
+                }
+                else if(chess[i][j]->getType() == "queen") {
+                    Point p;
+                    p.row = i; p.col = j;
+                    chessCnt[0][1].push_back(p);
+                }
+                else if(chess[i][j]->getType() == "rook") {
+                    Point p;
+                    p.row = i; p.col = j;
+                    chessCnt[0][2].push_back(p);
+                }
+                else if(chess[i][j]->getType() == "bishop") {
+                    Point p;
+                    p.row = i; p.col = j;
+                    chessCnt[0][3].push_back(p);
+                }
+                else if(chess[i][j]->getType() == "knight") {
+                    Point p;
+                    p.row = i; p.col = j;
+                    chessCnt[0][4].push_back(p);
+                }
+                else if(chess[i][j]->getType() == "pawn") {
+                    Point p;
+                    p.row = i; p.col = j;
+                    chessCnt[0][5].push_back(p);
+                }
+            }
+            else {
+                if(chess[i][j]->getType() == "king") {
+                    Point p;
+                    p.row = i; p.col = j;
+                    chessCnt[1][0].push_back(p);
+                }
+                else if(chess[i][j]->getType() == "queen") {
+                    Point p;
+                    p.row = i; p.col = j;
+                    chessCnt[1][1].push_back(p);
+                }
+                else if(chess[i][j]->getType() == "rook") {
+                    Point p;
+                    p.row = i; p.col = j;
+                    chessCnt[1][2].push_back(p);
+                }
+                else if(chess[i][j]->getType() == "bishop") {
+                    Point p;
+                    p.row = i; p.col = j;
+                    chessCnt[1][3].push_back(p);
+                }
+                else if(chess[i][j]->getType() == "knight") {
+                    Point p;
+                    p.row = i; p.col = j;
+                    chessCnt[1][4].push_back(p);
+                }
+                else if(chess[i][j]->getType() == "pawn") {
+                    Point p;
+                    p.row = i; p.col = j;
+                    chessCnt[1][5].push_back(p);
+                }
+            }
+        }
+    }
+    QString path = QFileDialog::getSaveFileName(this,tr("Open File"),".",tr("Text File(*.txt)"));
+    QFile *file = new QFile(path);
+    file->open(QIODevice::WriteOnly | QIODevice::Text);
+    QTextStream out(file);
+    int cur;
+    cur = (curSide == 1);
+    for(int times = 0; times < 2; times++, cur = (cur+1)%2) {
+        if(cur == 0) {
+            out << "black\n";
+        }
+        else {
+            out << "white\n";
+        }
+        for(int i = 0; i < 6; i ++) {
+            if(chessCnt[cur][i].size() > 0) {
+                switch (i) {
+                    case 0:
+                        out << "king ";
+                        break;
+                    case 1:
+                        out << "queen ";
+                        break;
+                    case 2:
+                        out << "rook ";
+                        break;
+                    case 3:
+                        out << "bishop ";
+                        break;
+                    case 4:
+                        out << "knight ";
+                        break;
+                    case 5:
+                        out << "pawn ";
+                        break;
+                }
+                out << chessCnt[cur][i].size() << " ";
+                for(int j = 0; j < chessCnt[cur][i].size(); j ++) {
+                    out << (char)((chessCnt[cur][i])[j].row + 'a');
+                    out << (chessCnt[cur][i])[j].col;
+                    out << " ";
+                }
+                out << "\n";
+            }
+        }
+    }
+    file->close();
 }

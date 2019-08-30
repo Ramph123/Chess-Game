@@ -49,6 +49,7 @@ public slots:
     void askDraw();
     void startConnection(QString);
     void acceptConnection();
+    void connectOK();
     void connectTimeout();
     void disconnect1();
     void abort();
@@ -86,6 +87,7 @@ private:
     QTcpServer  *listenSocket;
     QTcpSocket  *readWriteSocket;
     bool activeness;
+    QTimer *connectTimer;
 
     bool side; // 0: black  1:white
     bool limitEnable;

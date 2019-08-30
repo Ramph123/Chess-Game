@@ -81,7 +81,7 @@ void connectDialog::checkFormat() {
     int num;
     sscanf(portNumber.toLatin1().data(), "%d", &num);
     qDebug() << "port:" << num;
-    if(num < 0 || num > 65535) {
+    if(num <= 1024 || num >= 65535) {
         QMessageBox::critical(this, "Error", "Error: Port number invalid!");
         return;
     }

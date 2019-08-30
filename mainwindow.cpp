@@ -176,30 +176,30 @@ void MainWindow::startConnection(QString ipAddress) {
         ui->statusLabel->setText("Connecting as client...");
         this->readWriteSocket = new QTcpSocket;
         this->readWriteSocket->connectToHost(QHostAddress(ipAdd),port);
-        QTimer *timer = new QTimer;
-        timer->start(15000);
-        timer->setSingleShot(true);
-        connect(timer, SIGNAL(timeout()), this, SLOT(connectTimeout()));
-        if(readWriteSocket->waitForConnected()) {
-            timer->stop();
-            emit connectSuccess();
-            connected = true;
-            statusUpdate();
-            connect(this->readWriteSocket,SIGNAL(readyRead()),this,SLOT(recvMessage()));
-            beatCnt = 0;
-            beatTimer = new QTimer(readWriteSocket);
-            beatTimer->start(1000);
-            connect(beatTimer, &QTimer::timeout, this, &MainWindow::keepAlive);
-            QMessageBox::information(this, "success", "Connection established.");
-            //ui->turnLabel->setText("WAITING CONFIG");
-            update();
-        }
+        connectTimer = new QTimer;
+        connectTimer->start(15000);
+        connectTimer->setSingleShot(true);
+        connect(connectTimer, SIGNAL(timeout()), this, SLOT(connectTimeout()));
+        connect(this->readWriteSocket,SIGNAL(readyRead()),this,SLOT(recvMessage()));
     }
 }
 
 void MainWindow::connectTimeout() {
     QMessageBox::critical(this, "timeout", "Connect Timeout!");
     disconnect1();
+}
+
+void MainWindow::connectOK() {
+    connectTimer->stop();
+    emit connectSuccess();
+    connected = true;
+    statusUpdate();
+    QMessageBox::information(this, "success", "Connection established.");
+    beatCnt = 0;
+    beatTimer = new QTimer(readWriteSocket);
+    beatTimer->start(1000);
+    connect(beatTimer, &QTimer::timeout, this, &MainWindow::keepAlive);
+    update();
 }
 
 void MainWindow::acceptConnection()
@@ -220,11 +220,12 @@ void MainWindow::acceptConnection()
     //newGame_Passive();
     connect(this->readWriteSocket, SIGNAL(disconnected()), this, SLOT(disconnect1()));
     connect(this->readWriteSocket,SIGNAL(readyRead()),this,SLOT(recvMessage()));
+    readWriteSocket->write("connectOK\n");
+    QMessageBox::information(this, "success", "Connection established.");
     beatCnt = 0;
     beatTimer = new QTimer(readWriteSocket);
     beatTimer->start(1000);
     connect(beatTimer, &QTimer::timeout, this, &MainWindow::keepAlive);
-    QMessageBox::information(this, "success", "Connection established.");
 }
 
 void MainWindow::keepAlive() {
@@ -289,6 +290,9 @@ void MainWindow::recvMessage()
         }
         else if(info == "Start check") {
             beatTimer->start(1000);
+        }
+        else if(info == "connectOK") {
+            connectOK();
         }
         else if(info == "Admit defeat") {
             readWriteSocket->write("Stop check\n");
@@ -436,7 +440,6 @@ void MainWindow::recvMessage()
         else if(info.left(9) == "Checkmate") {
             int kingRow, kingCol;
             sscanf(info.toLatin1().data(), "Checkmate %d-%d", &kingRow, &kingCol);
-            chess[kingRow][kingCol]->setMargin(Qt::red);
             moveChess(prevRow, prevCol, kingRow, kingCol);
             readWriteSocket->write("Stop check\n");
             beatTimer->stop();
@@ -1166,7 +1169,11 @@ void MainWindow::checkerClicked(int row, int col) {
         if(checkmate){
             QString block = "Checkmate " + QString::number(row) + "-" + QString::number(col) + "\n";
             readWriteSocket->write(block.toLatin1().data());
+            readWriteSocket->write("Stop check\n");
+            beatTimer->stop();
             QMessageBox::information(this, "Checkmate", "You win!");
+            readWriteSocket->write("Start check\n");
+            beatTimer->start();
             endGame();
         }
         else if(chess[row][col]->getType() == "pawn" && ((chess[row][col]->getSide() == "black" && row == 0) || (chess[row][col]->getSide() == "white" && row == 7))) {
@@ -1497,8 +1504,12 @@ void MainWindow::getControl() {
 }
 
 void MainWindow::stalemate() {
+    readWriteSocket->write("Stop check\n");
+    beatTimer->stop();
     readWriteSocket->write("Stalemate\n");
     QMessageBox::information(this, "Stalemate", "Stalemate!");
+    readWriteSocket->write("Start check\n");
+    beatTimer->start();
     endGame();
 }
 

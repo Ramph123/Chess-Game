@@ -112,6 +112,10 @@ private:
     void stalemate();
 
     bool castling;
+
+    void keepAlive();
+    int beatCnt;
+    QTimer *beatTimer;
 };
 
 #endif // MAINWINDOW_H

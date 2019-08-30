@@ -53,9 +53,11 @@ void connectDialog::portChanged(QString content) {
 }
 
 void connectDialog::cancelConnection() {
+    ui->cancelButton->setDisabled(true);
     emit abort();
 }
 void connectDialog::checkFormat() {
+    ui->cancelButton->setEnabled(true);
     int ip1, ip2, ip3, ip4;
     if(sscanf(inputIP.toLatin1().data(), "%d.%d.%d.%d", &ip1, &ip2, &ip3, &ip4) != 4) {
         QMessageBox::critical(this, "Error", "Error: IP address invalid!");

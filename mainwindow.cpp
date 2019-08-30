@@ -149,7 +149,8 @@ void MainWindow::statusUpdate() {
 }
 
 void MainWindow::connection() {
-    connected = false;
+    if(connected)
+        disconnect1();
     statusUpdate();
     connectConfigure = new connectDialog(this);
     connectConfigure->setModal(false);
@@ -185,6 +186,10 @@ void MainWindow::startConnection(QString ipAddress) {
             connected = true;
             statusUpdate();
             connect(this->readWriteSocket,SIGNAL(readyRead()),this,SLOT(recvMessage()));
+            beatCnt = 0;
+            beatTimer = new QTimer(readWriteSocket);
+            beatTimer->start(1000);
+            connect(beatTimer, &QTimer::timeout, this, &MainWindow::keepAlive);
             QMessageBox::information(this, "success", "Connection established.");
             //ui->turnLabel->setText("WAITING CONFIG");
             update();
@@ -199,9 +204,10 @@ void MainWindow::connectTimeout() {
 
 void MainWindow::acceptConnection()
 {
+    if(readWriteSocket != nullptr)
+        return;
     this->readWriteSocket = this->listenSocket->nextPendingConnection();
     emit connectSuccess();
-    listenSocket->close();
     connected = true;
     statusUpdate();
     //ui->turnLabel->setText("WAITING CONFIG");
@@ -214,7 +220,23 @@ void MainWindow::acceptConnection()
     //newGame_Passive();
     connect(this->readWriteSocket, SIGNAL(disconnected()), this, SLOT(disconnect1()));
     connect(this->readWriteSocket,SIGNAL(readyRead()),this,SLOT(recvMessage()));
+    beatCnt = 0;
+    beatTimer = new QTimer(readWriteSocket);
+    beatTimer->start(1000);
+    connect(beatTimer, &QTimer::timeout, this, &MainWindow::keepAlive);
     QMessageBox::information(this, "success", "Connection established.");
+}
+
+void MainWindow::keepAlive() {
+    beatCnt ++;
+    qDebug() << "Beat" << beatCnt;
+    if (beatCnt == 1)
+        readWriteSocket->write("Heartbeat\n");
+    else if (beatCnt > 5) {
+        QMessageBox::information(this, "Disconnect", "Connection failed!");
+        //readWriteSocket->disconnectFromHost();
+        disconnect1();
+    }
 }
 
 void MainWindow::gameConfig(QString result) {
@@ -258,20 +280,42 @@ void MainWindow::recvMessage()
     for(int i = 0; i < inList.size(); i ++) {
         info = inList.at(i);
         qDebug() << info;
-        if(info == "Admit defeat") {
+        if(info == "Heartbeat") {
+            beatCnt = 0;
+            continue;
+        }
+        else if(info == "Stop check") {
+            beatTimer->stop();
+        }
+        else if(info == "Start check") {
+            beatTimer->start(1000);
+        }
+        else if(info == "Admit defeat") {
+            readWriteSocket->write("Stop check\n");
+            beatTimer->stop();
             QMessageBox::information(this, "information", "Opponent admits defeat. You win!");
+            readWriteSocket->write("Start check\n");
+            beatTimer->start();
             readWriteSocket->write("Defeat information get\n");
             //stream << "Defeat information get";
             endGame();
         }
         else if(info == "Defeat information get") {
+            readWriteSocket->write("Stop check\n");
+            beatTimer->stop();
             QMessageBox::information(this, "information", "You Lose!");
+            readWriteSocket->write("Start check\n");
+            beatTimer->start();
             endGame();
         }
         else if(info == "Ask draw") {
             timer->stop();
             ui->turnLabel->setText("WAITING DECISION ...");
+            readWriteSocket->write("Stop check\n");
+            beatTimer->stop();
             QMessageBox::StandardButton reply = QMessageBox::question(this, "Ask for draw", "Opponent asks for a draw. Do you agree?");
+            readWriteSocket->write("Start check\n");
+            beatTimer->start(1000);
             if(reply == QMessageBox::No) {
                 readWriteSocket->write("Refuse draw\n");
                 if(limitEnable)
@@ -287,11 +331,19 @@ void MainWindow::recvMessage()
         else if(info == "Refuse draw") {
             if(limitEnable)
                 timer->start(1000);
+            readWriteSocket->write("Stop check\n");
+            beatTimer->stop();
             QMessageBox::information(this, "Reply", "Opponent refuses a draw!");
+            readWriteSocket->write("Start check\n");
+            beatTimer->start(1000);
             turnUpdate();
         }
         else if(info == "Accept draw") {
+            readWriteSocket->write("Stop check\n");
+            beatTimer->stop();
             QMessageBox::information(this, "Reply", "Opponent accepts a draw!");
+            readWriteSocket->write("Start check\n");
+            beatTimer->start(1000);
             endGame();
         }
         else if(info == "New game") {
@@ -303,6 +355,8 @@ void MainWindow::recvMessage()
             newGame();
         }
         else if(info.left(6) == "Config") {
+            readWriteSocket->write("Start check\n");
+            beatTimer->start(2000);
             int in_side, in_enable, in_time;
             sscanf(info.toLatin1().data(), "Config-%d-%d-%d", &in_side, &in_enable, &in_time);
             side = (in_side) ? true : false;
@@ -318,6 +372,8 @@ void MainWindow::recvMessage()
             //readWriteSocket->write("Game start");
         }
         else if(info.left(7) == "ConLoad") {
+            readWriteSocket->write("Start check\n");
+            beatTimer->start(1000);
             int in_side, in_enable, in_time;
             sscanf(info.toLatin1().data(), "ConLoad-%d-%d-%d", &in_side, &in_enable, &in_time);
             side = (in_side) ? true : false;
@@ -337,9 +393,9 @@ void MainWindow::recvMessage()
         else if(info.left(5) == "Click") {
             int row, col;
             sscanf(info.toLatin1().data(), "Click %d-%d", &row, &col);
-            clickChess(row, col);
+            //clickChess(row, col);
             getAccessible(row, col);
-            paintAccessible();
+            //paintAccessible();
             prevRow = row;
             prevCol = col;
         }
@@ -370,7 +426,11 @@ void MainWindow::recvMessage()
             }
         }
         else if(info == "Stalemate") {
+            readWriteSocket->write("Stop check\n");
+            beatTimer->stop();
             QMessageBox::information(this, "Stalemate", "Stalemate!");
+            readWriteSocket->write("Start check\n");
+            beatTimer->start(1000);
             endGame();
         }
         else if(info.left(9) == "Checkmate") {
@@ -378,7 +438,11 @@ void MainWindow::recvMessage()
             sscanf(info.toLatin1().data(), "Checkmate %d-%d", &kingRow, &kingCol);
             chess[kingRow][kingCol]->setMargin(Qt::red);
             moveChess(prevRow, prevCol, kingRow, kingCol);
+            readWriteSocket->write("Stop check\n");
+            beatTimer->stop();
             QMessageBox::information(this, "Checkmate", "You lose!");
+            readWriteSocket->write("Start check\n");
+            beatTimer->start(1000);
             endGame();
         }
         else if(info.left(9) == "Promotion") {
@@ -486,7 +550,11 @@ void MainWindow::recvMessage()
             loadGame();
         }
         else if(info == "AskOpen") {
+            readWriteSocket->write("Stop check\n");
+            beatTimer->stop();
             QMessageBox::information(this, "open", "Client asks for loading a game");
+            readWriteSocket->write("Start check\n");
+            beatTimer->start(1000);
             openGame();
         }
         else if(info.startsWith("w") || info.startsWith("b")) {
@@ -527,13 +595,17 @@ void MainWindow::recvMessage()
             }
             loadStart();
         }
+        else if(info == "Disconnect") {
+            connected = false;
+            disconnect1();
+        }
     }
 }
 
 void MainWindow::abort() {
     if(mode == 0) {
         endGame(true);
-        listenSocket->close();
+        listenSocket->deleteLater();
         listenSocket = nullptr;
         connected = false;
         statusUpdate();
@@ -640,8 +712,12 @@ void MainWindow::updateTime() {
 void MainWindow::giveUp() {
     if(!activeness || !connected)
         return;
+    readWriteSocket->write("Stop check\n");
+    beatTimer->stop();
     QMessageBox::StandardButton reply = QMessageBox::question(this, "Admit defeat", "Are you sure you want to admit defeat?");
     qDebug() << "giveup";
+    readWriteSocket->write("Start check\n");
+    beatTimer->start(1000);
     if(reply == QMessageBox::No) {
         return;
     }
@@ -653,8 +729,12 @@ void MainWindow::giveUp() {
 void MainWindow::askDraw() {
     if(!activeness || !connected)
         return;
+    readWriteSocket->write("Stop check\n");
+    beatTimer->stop();
     QMessageBox::StandardButton reply = QMessageBox::question(this, "Ask draw", "Are you sure you want to ask for a draw?");
     qDebug() << "askDraw";
+    readWriteSocket->write("Start check\n");
+    beatTimer->start(1000);
     if(reply == QMessageBox::No) {
         return;
     }
@@ -984,7 +1064,9 @@ void MainWindow::paintAccessible() {
 
         }
         else {
-            chess[tarRow][tarCol]->setMargin(Qt::green);
+            QColor color;
+            color.setRgb(0,255,127);
+            chess[tarRow][tarCol]->setMargin(color);
         }
     }
 }
@@ -1089,6 +1171,8 @@ void MainWindow::checkerClicked(int row, int col) {
         }
         else if(chess[row][col]->getType() == "pawn" && ((chess[row][col]->getSide() == "black" && row == 0) || (chess[row][col]->getSide() == "white" && row == 7))) {
             //QMessageBox::information(this, "promotion", "promotion");
+            readWriteSocket->write("Stop check\n");
+            beatTimer->stop();
             promotionDialog *d = new promotionDialog(chess[row][col]->getSide(), row, col);
             d->setModal(false);
             d->show();
@@ -1152,6 +1236,8 @@ void MainWindow::checkerClicked(int row, int col) {
 }
 
 void MainWindow::promote(QString target, int row, int col) {
+    readWriteSocket->write("Start check\n");
+    beatTimer->start(1000);
     chess[row][col]->setChess(chess[row][col]->getSide(), target);
     repaint();
     int out = 0;
@@ -1435,6 +1521,8 @@ void MainWindow::openGame() {
         ui->turnLabel->setText("LOAD GAME!");
         repaint();
         readWriteSocket->write("Open\n");
+        readWriteSocket->write("Stop check\n");
+        beatTimer->stop();
         serverGameConfig *newConfig = new serverGameConfig(true);
         newConfig->setModal(false);
         connect(newConfig, SIGNAL(gameConfigResult(QString)), this, SLOT(gameConfig(QString)));
@@ -1448,7 +1536,11 @@ void MainWindow::askLoad() {
 
 void MainWindow::loadGame() {
     //QMessageBox::information(this, "load", "load");
+    readWriteSocket->write("Stop check\n");
+    beatTimer->stop();
     QString path = QFileDialog::getOpenFileName(nullptr,"Open",QDir::homePath(),"Text File(*.txt)");
+    readWriteSocket->write("Start check\n");
+    beatTimer->start(1000);
     QFile *file = new QFile(path);
     QStringList inputList;
     if(file->exists()) {
@@ -1641,7 +1733,11 @@ void MainWindow::saveGame() {
             }
         }
     }
+    readWriteSocket->write("Stop check\n");
+    beatTimer->stop();
     QString path = QFileDialog::getSaveFileName(this,tr("Open File"),".",tr("Text File(*.txt)"));
+    readWriteSocket->write("Start check\n");
+    beatTimer->start(1000);
     QFile *file = new QFile(path);
     file->open(QIODevice::WriteOnly | QIODevice::Text);
     QTextStream out(file);
